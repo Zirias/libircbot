@@ -19,15 +19,15 @@ typedef enum LogLevel
 typedef void (*logwriter)(LogLevel level, const char *message, void *data)
     ATTR_NONNULL((2));
 
-void setFileLogger(FILE *file) ATTR_NONNULL((1));
-void setCustomLogger(logwriter writer, void *data) ATTR_NONNULL((1));
-void setMaxLogLevel(LogLevel level);
+DECLEXPORT void setFileLogger(FILE *file) ATTR_NONNULL((1));
+DECLEXPORT void setCustomLogger(logwriter writer, void *data) ATTR_NONNULL((1));
+DECLEXPORT void setMaxLogLevel(LogLevel level);
 
-void logmsg(LogLevel level, const char *message) ATTR_NONNULL((2));
-void logfmt(LogLevel level, const char *format, ...)
+DECLEXPORT void logmsg(LogLevel level, const char *message) ATTR_NONNULL((2));
+DECLEXPORT void logfmt(LogLevel level, const char *format, ...)
     ATTR_NONNULL((2)) ATTR_FORMAT((printf, 2, 3));
-void logsetsilent(int silent);
-void logsetasync(int async);
+DECLEXPORT void logsetsilent(int silent);
+DECLEXPORT void logsetasync(int async);
 
 #endif
 

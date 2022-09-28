@@ -171,7 +171,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
     (void) msg;
 }
 
-void IrcServer_connect(IrcServer *self)
+SOEXPORT void IrcServer_connect(IrcServer *self)
 {
     if (self->conn) return;
     self->conn = Connection_createTcpClient(self->remotehost, self->port, 1);
