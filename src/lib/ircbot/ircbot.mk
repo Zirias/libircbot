@@ -1,4 +1,4 @@
-ircbot_MODULES:= util service event log threadpool connection client \
+ircbot_MODULES:= util service event log threadpool connection client queue \
 		 ircserver ircmessage
 ircbot_LDFLAGS:= -pthread
 ircbot_HEADERS_INSTALL:= config decl
