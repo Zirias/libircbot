@@ -1,4 +1,5 @@
-ircbot_MODULES:= util service event log threadpool connection client
+ircbot_MODULES:= util service event log threadpool connection client \
+		 ircserver
 ircbot_LDFLAGS:= -pthread
 ircbot_HEADERS_INSTALL:= config decl
 ircbot_HEADERDIR:= include$(PSEP)ircbot
