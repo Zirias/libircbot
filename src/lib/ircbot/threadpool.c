@@ -1,9 +1,9 @@
 #define _DEFAULT_SOURCE
 
 #include <ircbot/config.h>
+#include <ircbot/event.h>
+#include <ircbot/log.h>
 
-#include "event.h"
-#include "log.h"
 #include "service.h"
 #include "threadpool.h"
 #include "util.h"

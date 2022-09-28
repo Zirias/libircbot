@@ -2,32 +2,17 @@
 #define IRCBOT_INT_SERVICE_H
 
 #include <ircbot/decl.h>
-
-#define MAXPANICHANDLERS 8
+#include <ircbot/service.h>
 
 typedef struct Config Config;
-typedef struct Event Event;
-
-typedef struct StartupEventArgs
-{
-    int rc;
-} StartupEventArgs;
-
-typedef void (*PanicHandler)(const char *msg) ATTR_NONNULL((1));
 
 int Service_init(const Config *config) ATTR_NONNULL((1));
 Event *Service_readyRead(void) ATTR_RETNONNULL ATTR_PURE;
 Event *Service_readyWrite(void) ATTR_RETNONNULL ATTR_PURE;
-Event *Service_startup(void) ATTR_RETNONNULL ATTR_PURE;
-Event *Service_shutdown(void) ATTR_RETNONNULL ATTR_PURE;
-Event *Service_tick(void) ATTR_RETNONNULL ATTR_PURE;
-Event *Service_eventsDone(void) ATTR_RETNONNULL ATTR_PURE;
 void Service_registerRead(int id);
 void Service_unregisterRead(int id);
 void Service_registerWrite(int id);
 void Service_unregisterWrite(int id);
-void Service_registerPanic(PanicHandler handler) ATTR_NONNULL((1));
-void Service_unregisterPanic(PanicHandler handler) ATTR_NONNULL((1));
 int Service_setTickInterval(unsigned msec);
 int Service_run(void);
 void Service_quit(void);

@@ -1,5 +1,5 @@
-#ifndef IRCBOT_INT_LOG_H
-#define IRCBOT_INT_LOG_H
+#ifndef IRCBOT_LOG_H
+#define IRCBOT_LOG_H
 
 #include <ircbot/decl.h>
 

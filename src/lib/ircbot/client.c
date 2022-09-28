@@ -1,8 +1,9 @@
 #define _DEFAULT_SOURCE
 
+#include <ircbot/log.h>
+
 #include "client.h"
 #include "connection.h"
-#include "log.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -11,7 +12,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 SOLOCAL Connection *Connection_createTcpClient(const char *remotehost,

@@ -1,4 +1,5 @@
-#include "log.h"
+#include <ircbot/log.h>
+
 #include "threadpool.h"
 #include "util.h"
 
@@ -48,7 +49,7 @@ static void writeFile(LogLevel level, const char *message, void *data)
     fflush(target);
 }
 
-SOLOCAL void logmsg(LogLevel level, const char *message)
+SOEXPORT void logmsg(LogLevel level, const char *message)
 {
     if (!currentwriter) return;
     if (logsilent && level > L_ERROR) return;
@@ -70,7 +71,7 @@ SOLOCAL void logmsg(LogLevel level, const char *message)
     currentwriter(level, message, writerdata);
 }
 
-SOLOCAL void logfmt(LogLevel level, const char *format, ...)
+SOEXPORT void logfmt(LogLevel level, const char *format, ...)
 {
     if (!currentwriter) return;
     if (logsilent && level > L_ERROR) return;
@@ -83,29 +84,29 @@ SOLOCAL void logfmt(LogLevel level, const char *format, ...)
     logmsg(level, buf);
 }
 
-SOLOCAL void logsetsilent(int silent)
+SOEXPORT void logsetsilent(int silent)
 {
     logsilent = silent;
 }
 
-SOLOCAL void logsetasync(int async)
+SOEXPORT void logsetasync(int async)
 {
     logasync = async;
 }
 
-SOLOCAL void setFileLogger(FILE *file)
+SOEXPORT void setFileLogger(FILE *file)
 {
     currentwriter = writeFile;
     writerdata = file;
 }
 
-SOLOCAL void setCustomLogger(logwriter writer, void *data)
+SOEXPORT void setCustomLogger(logwriter writer, void *data)
 {
     currentwriter = writer;
     writerdata = data;
 }
 
-SOLOCAL void setMaxLogLevel(LogLevel level)
+SOEXPORT void setMaxLogLevel(LogLevel level)
 {
     maxlevel = level;
 }

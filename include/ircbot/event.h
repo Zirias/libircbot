@@ -1,11 +1,11 @@
-#ifndef IRCBOT_INT_EVENT_H
-#define IRCBOT_INT_EVENT_H
+#ifndef IRCBOT_EVENT_H
+#define IRCBOT_EVENT_H
 
 #include <ircbot/decl.h>
 
 typedef void (*EventHandler)(void *receiver, void *sender, void *args);
 
-typedef struct Event Event;
+C_CLASS_DECL(Event);
 
 Event *Event_create(void *sender) ATTR_RETNONNULL;
 void Event_register(Event *self, void *receiver, EventHandler handler,

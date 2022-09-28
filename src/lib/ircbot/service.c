@@ -1,9 +1,9 @@
 #define _DEFAULT_SOURCE
 
 #include <ircbot/config.h>
+#include <ircbot/event.h>
+#include <ircbot/log.h>
 
-#include "event.h"
-#include "log.h"
 #include "service.h"
 
 #include <grp.h>
@@ -105,22 +105,22 @@ SOLOCAL Event *Service_readyWrite(void)
     return readyWrite;
 }
 
-SOLOCAL Event *Service_startup(void)
+SOEXPORT Event *Service_startup(void)
 {
     return startup;
 }
 
-SOLOCAL Event *Service_shutdown(void)
+SOEXPORT Event *Service_shutdown(void)
 {
     return shutdown;
 }
 
-SOLOCAL Event *Service_tick(void)
+SOEXPORT Event *Service_tick(void)
 {
     return tick;
 }
 
-SOLOCAL Event *Service_eventsDone(void)
+SOEXPORT Event *Service_eventsDone(void)
 {
     return eventsDone;
 }
@@ -157,13 +157,13 @@ SOLOCAL void Service_unregisterWrite(int id)
     tryReduceNfds(id);
 }
 
-SOLOCAL void Service_registerPanic(PanicHandler handler)
+SOEXPORT void Service_registerPanic(PanicHandler handler)
 {
     if (numPanicHandlers >= MAXPANICHANDLERS) return;
     panicHandlers[numPanicHandlers++] = handler;
 }
 
-SOLOCAL void Service_unregisterPanic(PanicHandler handler)
+SOEXPORT void Service_unregisterPanic(PanicHandler handler)
 {
     for (int i = 0; i < numPanicHandlers; ++i)
     {
