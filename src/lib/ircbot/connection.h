@@ -16,11 +16,10 @@ typedef struct DataReceivedEventArgs
     uint8_t *buf;
     int handling;
     uint16_t size;
-    uint8_t offset;
 } DataReceivedEventArgs;
 
-Connection *Connection_create(int fd, ConnectionCreateMode mode,
-	uint8_t readOffset) ATTR_RETNONNULL;
+Connection *Connection_create(int fd, ConnectionCreateMode mode)
+    ATTR_RETNONNULL;
 Event *Connection_connected(Connection *self)
     CMETHOD ATTR_RETNONNULL ATTR_PURE;
 Event *Connection_closed(Connection *self)

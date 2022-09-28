@@ -3,12 +3,9 @@
 
 #include <ircbot/decl.h>
 
-#include <stdint.h>
-
-typedef struct Config Config;
 typedef struct Connection Connection;
 
-Connection *Connection_createTcpClient(const Config *config,
-	uint8_t readOffset) ATTR_NONNULL((1));
+Connection *Connection_createTcpClient(const char *remotehost, int port,
+	int numerichosts) ATTR_NONNULL((1));
 
 #endif

@@ -10,10 +10,6 @@ typedef struct Config
     int daemonize;
     const char *pidfile;
 
-    const char *remotehost;
-    int port;
-    int numeric_hosts;
-
     int nthreads;
     int maxthreads;
     int threads_per_cpu;

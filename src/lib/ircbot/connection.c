@@ -62,7 +62,6 @@ typedef struct Connection
     uint8_t deleteScheduled;
     uint8_t nrecs;
     uint8_t baserecidx;
-    uint8_t readOffset;
     uint8_t rdbuf[CONNBUFSZ];
 } Connection;
 
@@ -180,12 +179,10 @@ static void readConnection(void *receiver, void *sender, void *args)
     }
 
     errno = 0;
-    int rc = read(self->fd, self->rdbuf + self->readOffset,
-	    CONNBUFSZ - self->readOffset);
+    int rc = read(self->fd, self->rdbuf, CONNBUFSZ);
     if (rc > 0)
     {
 	self->args.size = rc;
-	self->args.offset = self->readOffset;
 	Event_raise(self->dataReceived, 0, &self->args);
 	if (self->args.handling)
 	{
@@ -220,8 +217,7 @@ static void deleteConnection(void *receiver, void *sender, void *args)
     Connection_destroy(self);
 }
 
-SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode,
-	uint8_t readOffset)
+SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode)
 {
     Connection *self = xmalloc(sizeof *self);
     self->connected = Event_create(self);
@@ -240,7 +236,6 @@ SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode,
     self->deleteScheduled = 0;
     self->nrecs = 0;
     self->baserecidx = 0;
-    self->readOffset = readOffset;
     Event_register(Service_readyRead(), self, readConnection, fd);
     Event_register(Service_readyWrite(), self, writeConnection, fd);
     if (mode == CCM_CONNECTING)

@@ -1,7 +1,5 @@
 #define _DEFAULT_SOURCE
 
-#include <ircbot/config.h>
-
 #include "client.h"
 #include "connection.h"
 #include "log.h"
@@ -16,23 +14,18 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-SOLOCAL Connection *Connection_createTcpClient(const Config *config,
-	uint8_t readOffset)
+SOLOCAL Connection *Connection_createTcpClient(const char *remotehost,
+	int port, int numerichosts)
 {
-    if (!config->remotehost)
-    {
-	logmsg(L_ERROR, "client: attempt to connect without remote host");
-	return 0;
-    }
     struct addrinfo hints;
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_ADDRCONFIG|AI_NUMERICSERV;
     char portstr[6];
-    snprintf(portstr, 6, "%d", config->port);
+    snprintf(portstr, 6, "%d", port);
     struct addrinfo *res, *res0;
-    if (getaddrinfo(config->remotehost, portstr, &hints, &res0) < 0)
+    if (getaddrinfo(remotehost, portstr, &hints, &res0) < 0)
     {
 	logmsg(L_ERROR, "client: cannot get address info");
 	return 0;
@@ -56,12 +49,12 @@ SOLOCAL Connection *Connection_createTcpClient(const Config *config,
     if (fd < 0)
     {
 	freeaddrinfo(res0);
-	logfmt(L_ERROR, "client: cannot connect to `%s'", config->remotehost);
+	logfmt(L_ERROR, "client: cannot connect to `%s'", remotehost);
 	return 0;
     }
-    Connection *conn = Connection_create(fd, CCM_CONNECTING, readOffset);
+    Connection *conn = Connection_create(fd, CCM_CONNECTING);
     Connection_setRemoteAddr(conn, res->ai_addr, res->ai_addrlen,
-	    config->numeric_hosts);
+	    numerichosts);
     freeaddrinfo(res0);
     return conn;
 }
