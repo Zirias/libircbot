@@ -64,6 +64,7 @@ static void connConnected(void *receiver, void *sender, void *args)
 
     if (conn == self->conn)
     {
+	logmsg(L_DEBUG, "IrcServer: TCP connection established");
 	Event_register(Connection_dataReceived(self->conn), self,
 		connDataReceived, 0);
 	Event_register(Connection_dataSent(self->conn), self,
@@ -90,6 +91,7 @@ static void connClosed(void *receiver, void *sender, void *args)
 	Queue_destroy(self->sendQueue);
 	self->sendQueue = 0;
 	Event_raise(self->disconnected, 0, 0);
+	logmsg(L_INFO, "IrcServer: disconnected");
     }
 }
 
@@ -109,7 +111,7 @@ static void connDataReceived(void *receiver, void *sender, void *args)
     {
 	oldpos = pos;
 	IrcMessage *msg = IrcMessage_create(self->recvbuf,
-		self->recvbufsz - pos, &pos);
+		self->recvbufsz, &pos);
 	if (msg) handleMessage(self, msg);
 	IrcMessage_destroy(msg);
     }
@@ -137,6 +139,7 @@ static void connDataSent(void *receiver, void *sender, void *args)
 
     if (conn == self->conn)
     {
+	logmsg(L_DEBUG, "IrcServer: sending confirmed");
 	free(self->sendcmd);
 	self->sendcmd = 0;
 	char *nextcmd = Queue_dequeue(self->sendQueue);
@@ -144,7 +147,7 @@ static void connDataSent(void *receiver, void *sender, void *args)
 	{
 	    self->sendcmd = nextcmd;
 	    Connection_write(self->conn, (const uint8_t *)self->sendcmd,
-		    (uint16_t)strlen(self->sendcmd), 0);
+		    (uint16_t)strlen(self->sendcmd), self);
 	}
 	else self->sending = 0;
     }
@@ -153,6 +156,7 @@ static void connDataSent(void *receiver, void *sender, void *args)
 static void sendRaw(IrcServer *self, const char *command)
 {
     char *cmd = copystr(command);
+    logfmt(L_DEBUG, "IrcServer: sending %s", cmd);
     if (self->sending)
     {
 	Queue_enqueue(self->sendQueue, cmd, free);
@@ -162,13 +166,14 @@ static void sendRaw(IrcServer *self, const char *command)
 	self->sendcmd = cmd;
 	self->sending = 1;
 	Connection_write(self->conn, (const uint8_t *)self->sendcmd,
-		(uint16_t)strlen(self->sendcmd), 0);
+		(uint16_t)strlen(self->sendcmd), self);
     }
 }
 
 static void handleMessage(IrcServer *self, const IrcMessage *msg)
 {
     const char *cmd = IrcMessage_command(msg);
+    logfmt(L_DEBUG, "IrcServer: received command %s", cmd);
     if (!strcmp(cmd, "PRIVMSG"))
     {
 	char buf[512];
@@ -186,10 +191,12 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	if (*message == ':') ++message;
 	message[strcspn(message, "\r\n")] = 0;
 	MsgReceivedEventArgs ea = { .to = to, .message = message };
+	logfmt(L_DEBUG, "IrcServer: message %s: %s", to, message);
 	Event_raise(self->msgReceived, 0, &ea);
     }
     else if (!strcmp(cmd, "004"))
     {
+	logmsg(L_INFO, "IrcServer: connected");
 	Event_raise(self->connected, 0, 0);
     }
     else if (!strcmp(cmd, "432"))
@@ -212,6 +219,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 SOEXPORT void IrcServer_connect(IrcServer *self)
 {
     if (self->conn) return;
+    logmsg(L_DEBUG, "IrcServer: initiating TCP connection");
     self->conn = Connection_createTcpClient(self->remotehost, self->port, 1);
     Event_register(Connection_connected(self->conn), self, connConnected, 0);
     Event_register(Connection_closed(self->conn), self, connClosed, 0);

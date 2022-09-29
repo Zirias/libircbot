@@ -291,6 +291,7 @@ SOLOCAL int Service_run(void)
 	if (!shutdownRequest) src = pselect(nfds, r, w, 0, 0, &mask);
 	if (shutdownRequest)
 	{
+	    shutdownRequest = 0;
 	    shutdownRef = 0;
 	    shutdownTicks = 5;
 	    Event_raise(shutdown, 0, 0);
@@ -358,6 +359,7 @@ SOLOCAL void Service_quit(void)
 
 SOLOCAL void Service_shutdownLock(void)
 {
+    if (shutdownRef == 0) Service_setTickInterval(1000);
     if (shutdownRef >= 0) ++shutdownRef;
 }
 
