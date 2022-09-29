@@ -34,6 +34,9 @@ static int running;
 static volatile sig_atomic_t shutdownRequest;
 static volatile sig_atomic_t timerTick;
 
+static int shutdownRef;
+static int shutdownTicks;
+
 static struct itimerval timer;
 static struct itimerval otimer;
 
@@ -88,6 +91,8 @@ SOLOCAL int Service_init(const Config *config)
     running = 0;
     shutdownRequest = 0;
     timerTick = 0;
+    shutdownRef = -1;
+    shutdownTicks = -1;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = 0;
     timer.it_value.tv_sec = 0;
@@ -265,7 +270,7 @@ SOLOCAL int Service_run(void)
 
     if (setjmp(panicjmp) < 0) goto shutdown;
 
-    while (!shutdownRequest)
+    while (shutdownRef != 0)
     {
 	Event_raise(eventsDone, 0, 0);
 	fd_set rfds;
@@ -282,11 +287,23 @@ SOLOCAL int Service_run(void)
 	    memcpy(&wfds, &writefds, sizeof wfds);
 	    w = &wfds;
 	}
-	int src = pselect(nfds, r, w, 0, 0, &mask);
-	if (shutdownRequest) break;
+	int src;
+	if (!shutdownRequest) src = pselect(nfds, r, w, 0, 0, &mask);
+	if (shutdownRequest)
+	{
+	    shutdownRef = 0;
+	    shutdownTicks = 5;
+	    Event_raise(shutdown, 0, 0);
+	    continue;
+	}
 	if (timerTick)
 	{
 	    timerTick = 0;
+	    if (shutdownTicks > 0 && !--shutdownTicks)
+	    {
+		shutdownRef = 0;
+		break;
+	    }
 	    Event_raise(tick, 0, 0);
 	    continue;
 	}
@@ -317,7 +334,6 @@ SOLOCAL int Service_run(void)
 shutdown:
     running = 0;
     logmsg(L_INFO, "service shutting down");
-    Event_raise(shutdown, 0, 0);
 
 done:
     if (sigprocmask(SIG_SETMASK, &mask, 0) < 0)
@@ -338,6 +354,16 @@ done:
 SOLOCAL void Service_quit(void)
 {
     shutdownRequest = 1;
+}
+
+SOLOCAL void Service_shutdownLock(void)
+{
+    if (shutdownRef >= 0) ++shutdownRef;
+}
+
+SOLOCAL void Service_shutdownUnlock(void)
+{
+    if (shutdownRef > 0) --shutdownRef;
 }
 
 SOLOCAL void Service_panic(const char *msg)

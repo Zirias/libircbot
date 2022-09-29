@@ -16,6 +16,8 @@ void Service_unregisterWrite(int id);
 int Service_setTickInterval(unsigned msec);
 int Service_run(void);
 void Service_quit(void);
+void Service_shutdownLock(void);
+void Service_shutdownUnlock(void);
 void Service_panic(const char *msg) ATTR_NONNULL((1)) ATTR_NORETURN;
 void Service_done(void);
 
