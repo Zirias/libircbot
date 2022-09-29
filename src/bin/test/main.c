@@ -28,27 +28,18 @@ static void msgReceived(void *receiver, void *sender, void *args)
     }
 }
 
-static void connected(void *receiver, void *sender, void *args)
-{
-    (void)receiver;
-    (void)args;
-
-    IrcServer *server = sender;
-
-    Event_register(IrcServer_msgReceived(server), 0, msgReceived, 0);
-    IrcServer_join(server, CHANNEL);
-}
-
 int main(void)
 {
     setFileLogger(stderr);
+    setMaxLogLevel(L_DEBUG);
 
     Config config;
     memset(&config, 0, sizeof config);
     config.uid = -1;
 
     IrcServer *server = IrcServer_create(SERVER, PORT, NICK, USER, REALNAME);
-    Event_register(IrcServer_connected(server), 0, connected, 0);
+    IrcServer_join(server, CHANNEL);
+    Event_register(IrcServer_msgReceived(server), 0, msgReceived, 0);
 
     int rc = IrcBot_run(&config, server);
 

@@ -5,6 +5,7 @@
 #include "client.h"
 #include "connection.h"
 #include "ircmessage.h"
+#include "list.h"
 #include "queue.h"
 #include "util.h"
 
@@ -17,6 +18,7 @@ struct IrcServer {
     char *nick;
     const char *user;
     const char *realname;
+    List *channels;
     Connection *conn;
     Queue *sendQueue;
     Event *connected;
@@ -24,6 +26,7 @@ struct IrcServer {
     Event *msgReceived;
     char *sendcmd;
     int sending;
+    int connst;
     uint16_t recvbufsz;
     uint8_t recvbuf[8192];
 };
@@ -34,6 +37,7 @@ static void connDataReceived(void *receiver, void *sender, void *args);
 static void connDataSent(void *receiver, void *sender, void *args);
 
 static void sendRaw(IrcServer *self, const char *command);
+static void sendRawCmd(IrcServer *self, const char *cmd, const char *args);
 static void handleMessage(IrcServer *self, const IrcMessage *msg);
 
 SOEXPORT IrcServer *IrcServer_create(const char *remotehost, int port,
@@ -45,6 +49,7 @@ SOEXPORT IrcServer *IrcServer_create(const char *remotehost, int port,
     self->nick = copystr(nick);
     self->user = user;
     self->realname = realname;
+    self->channels = List_create();
     self->conn = 0;
     self->sendQueue = 0;
     self->connected = Event_create(self);
@@ -52,6 +57,7 @@ SOEXPORT IrcServer *IrcServer_create(const char *remotehost, int port,
     self->msgReceived = Event_create(self);
     self->sendcmd = 0;
     self->sending = 0;
+    self->connst = 0;
     self->recvbufsz = 0;
     return self;
 }
@@ -70,12 +76,7 @@ static void connConnected(void *receiver, void *sender, void *args)
 	Event_register(Connection_dataSent(self->conn), self,
 		connDataSent, 0);
 	self->sendQueue = Queue_create();
-
-	char buf[512];
-	snprintf(buf, 512, "NICK %s\r\n", self->nick);
-	sendRaw(self, buf);
-	snprintf(buf, 512, "USER %s 0 * :%s\r\n", self->user, self->realname);
-	sendRaw(self, buf);
+	self->connst = -1;
     }
 }
 
@@ -88,6 +89,7 @@ static void connClosed(void *receiver, void *sender, void *args)
     if (conn == self->conn)
     {
 	self->conn = 0;
+	self->connst = 0;
 	Queue_destroy(self->sendQueue);
 	self->sendQueue = 0;
 	Event_raise(self->disconnected, 0, 0);
@@ -128,6 +130,15 @@ static void connDataReceived(void *receiver, void *sender, void *args)
     {
 	memmove(self->recvbuf, self->recvbuf + pos, self->recvbufsz - pos);
 	self->recvbufsz -= pos;
+    }
+
+    if (self->connst < 0)
+    {
+	sendRawCmd(self, "NICK", self->nick);
+	char buf[512];
+	snprintf(buf, 512, "%s 0 * :%s", self->user, self->realname);
+	sendRawCmd(self, "USER", buf);
+	self->connst = 0;
     }
 }
 
@@ -170,6 +181,13 @@ static void sendRaw(IrcServer *self, const char *command)
     }
 }
 
+static void sendRawCmd(IrcServer *self, const char *cmd, const char *args)
+{
+    char buf[513];
+    snprintf(buf, 513, "%s %s\r\n", cmd, args);
+    sendRaw(self, buf);
+}
+
 static void handleMessage(IrcServer *self, const IrcMessage *msg)
 {
     const char *cmd = IrcMessage_command(msg);
@@ -197,6 +215,16 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
     else if (!strcmp(cmd, "004"))
     {
 	logmsg(L_INFO, "IrcServer: connected");
+	self->connst = 1;
+	if (List_size(self->channels))
+	{
+	    ListIterator *i = List_iterator(self->channels);
+	    while (ListIterator_moveNext(i))
+	    {
+		sendRawCmd(self, "JOIN", ListIterator_current(i));
+	    }
+	    ListIterator_destroy(i);
+	}
 	Event_raise(self->connected, 0, 0);
     }
     else if (!strcmp(cmd, "432"))
@@ -204,15 +232,11 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	size_t nicklen = strlen(self->nick);
 	self->nick = xrealloc(self->nick, nicklen+2);
 	strcpy(self->nick+nicklen, "_");
-	char buf[512];
-	snprintf(buf, 512, "NICK %s\r\n", self->nick);
-	sendRaw(self, buf);
+	sendRawCmd(self, "NICK", self->nick);
     }
     else if (!strcmp(cmd, "PING"))
     {
-	char buf[512];
-	snprintf(buf, 512, "PONG %s\r\n", IrcMessage_params(msg));
-	sendRaw(self, buf);
+	sendRawCmd(self, "PONG", IrcMessage_params(msg));
     }
 }
 
@@ -242,33 +266,36 @@ SOEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
     {
 	free(self->nick);
 	self->nick = copystr(nick);
-	if (self->conn)
+	if (self->connst > 0)
 	{
-	    char buf[512];
-	    snprintf(buf, 512, "NICK %s\r\n", self->nick);
-	    sendRaw(self, buf);
+	    sendRawCmd(self, "NICK", self->nick);
 	}
     }
 }
 
 SOEXPORT void IrcServer_join(IrcServer *self, const char *channel)
 {
-    char buf[512];
-    snprintf(buf, 512, "JOIN %s\r\n", channel);
-    sendRaw(self, buf);
+    List_append(self->channels, copystr(channel), free);
+    if (self->connst > 0) sendRawCmd(self, "JOIN", channel);
+}
+
+static int compareChannel(void *a, const void *b)
+{
+    const char *ca = a;
+    const char *cb = b;
+    return !strcmp(ca, cb);
 }
 
 SOEXPORT void IrcServer_part(IrcServer *self, const char *channel)
 {
-    char buf[512];
-    snprintf(buf, 512, "PART %s\r\n", channel);
-    sendRaw(self, buf);
+    List_removeAll(self->channels, compareChannel, channel);
+    if (self->connst > 0) sendRawCmd(self, "PART", channel);
 }
 
 SOEXPORT int IrcServer_sendMsg(IrcServer *self,
 	const char *to, const char *message)
 {
-    if (!self->conn) return -1;
+    if (self->connst <= 0) return -1;
     if (strlen(to) > 255)
     {
 	logfmt(L_ERROR, "IrcServer: Invalid message recipient %s", to);
@@ -326,6 +353,7 @@ SOEXPORT void IrcServer_destroy(IrcServer *self)
     Event_destroy(self->connected);
     Event_destroy(self->disconnected);
     Event_destroy(self->msgReceived);
+    List_destroy(self->channels);
     free(self->sendcmd);
     free(self->nick);
     free(self);
