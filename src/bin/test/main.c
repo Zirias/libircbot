@@ -34,7 +34,14 @@ static void msgReceived(void *receiver, void *sender, void *args)
 
     if (strlen(ea->message) > 5 && !strncmp(ea->message, "!say ", 5))
     {
-	IrcServer_sendMsg(server, ea->to, ea->message+5, 0);
+	if (ea->from && !strcmp(ea->message+5, "my name"))
+	{
+	    IrcServer_sendMsg(server, ea->to, ea->from, 0);
+	}
+	else
+	{
+	    IrcServer_sendMsg(server, ea->to, ea->message+5, 0);
+	}
     }
     else if (!strcmp(ea->message, "!bier"))
     {
