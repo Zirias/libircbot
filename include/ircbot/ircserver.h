@@ -8,8 +8,7 @@ C_CLASS_DECL(IrcServer);
 
 typedef struct MsgReceivedEventArgs
 {
-    const char *nick;
-    const char *channel;
+    const char *to;
     const char *message;
 } MsgReceivedEventArgs;
 
@@ -26,9 +25,7 @@ DECLEXPORT void IrcServer_join(IrcServer *self, const char *channel)
     CMETHOD ATTR_NONNULL((2));
 DECLEXPORT void IrcServer_part(IrcServer *self, const char *channel)
     CMETHOD ATTR_NONNULL((2));
-DECLEXPORT int IrcServer_sendNick(IrcServer *self, const char *nick,
-	const char *message) CMETHOD ATTR_NONNULL((2)) ATTR_NONNULL((3));
-DECLEXPORT int IrcServer_sendChannel(IrcServer *self, const char *channel,
+DECLEXPORT int IrcServer_sendMsg(IrcServer *self, const char *to,
 	const char *message) CMETHOD ATTR_NONNULL((2)) ATTR_NONNULL((3));
 DECLEXPORT Event *IrcServer_connected(IrcServer *self)
     CMETHOD ATTR_RETNONNULL ATTR_PURE;

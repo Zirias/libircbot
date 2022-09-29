@@ -138,6 +138,7 @@ static void connDataSent(void *receiver, void *sender, void *args)
     if (conn == self->conn)
     {
 	free(self->sendcmd);
+	self->sendcmd = 0;
 	char *nextcmd = Queue_dequeue(self->sendQueue);
 	if (nextcmd)
 	{
@@ -167,8 +168,45 @@ static void sendRaw(IrcServer *self, const char *command)
 
 static void handleMessage(IrcServer *self, const IrcMessage *msg)
 {
-    (void) self;
-    (void) msg;
+    const char *cmd = IrcMessage_command(msg);
+    if (!strcmp(cmd, "PRIVMSG"))
+    {
+	char buf[512];
+	strncpy(buf, IrcMessage_params(msg), sizeof buf);
+	buf[sizeof buf - 1] = 0;
+	char *to = buf;
+	size_t idx = strcspn(to, " ");
+	if (!to[idx])
+	{
+	    logmsg(L_WARNING, "IrcServer: Erroneous PRIVMSG received");
+	    return;
+	}
+	char *message = to+idx;
+	*message++ = 0;
+	if (*message == ':') ++message;
+	message[strcspn(message, "\r\n")] = 0;
+	MsgReceivedEventArgs ea = { .to = to, .message = message };
+	Event_raise(self->msgReceived, 0, &ea);
+    }
+    else if (!strcmp(cmd, "004"))
+    {
+	Event_raise(self->connected, 0, 0);
+    }
+    else if (!strcmp(cmd, "432"))
+    {
+	size_t nicklen = strlen(self->nick);
+	self->nick = xrealloc(self->nick, nicklen+2);
+	strcpy(self->nick+nicklen, "_");
+	char buf[512];
+	snprintf(buf, 512, "NICK %s\r\n", self->nick);
+	sendRaw(self, buf);
+    }
+    else if (!strcmp(cmd, "PING"))
+    {
+	char buf[512];
+	snprintf(buf, 512, "PONG %s\r\n", IrcMessage_params(msg));
+	sendRaw(self, buf);
+    }
 }
 
 SOEXPORT void IrcServer_connect(IrcServer *self)
@@ -179,3 +217,108 @@ SOEXPORT void IrcServer_connect(IrcServer *self)
     Event_register(Connection_closed(self->conn), self, connClosed, 0);
 }
 
+SOEXPORT void IrcServer_disconnect(IrcServer *self)
+{
+    if (!self->conn) return;
+    sendRaw(self, "QUIT :bye.\r\n");
+}
+
+SOEXPORT const char *IrcServer_nick(const IrcServer *self)
+{
+    return self->nick;
+}
+
+SOEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
+{
+    if (strcmp(nick, self->nick))
+    {
+	free(self->nick);
+	self->nick = copystr(nick);
+	if (self->conn)
+	{
+	    char buf[512];
+	    snprintf(buf, 512, "NICK %s\r\n", self->nick);
+	    sendRaw(self, buf);
+	}
+    }
+}
+
+SOEXPORT void IrcServer_join(IrcServer *self, const char *channel)
+{
+    char buf[512];
+    snprintf(buf, 512, "JOIN %s\r\n", channel);
+    sendRaw(self, buf);
+}
+
+SOEXPORT void IrcServer_part(IrcServer *self, const char *channel)
+{
+    char buf[512];
+    snprintf(buf, 512, "PART %s\r\n", channel);
+    sendRaw(self, buf);
+}
+
+SOEXPORT int IrcServer_sendMsg(IrcServer *self,
+	const char *to, const char *message)
+{
+    if (!self->conn) return -1;
+    if (strlen(to) > 255)
+    {
+	logfmt(L_ERROR, "IrcServer: Invalid message recipient %s", to);
+	return -1;
+    }
+    char rawmsg[513];
+    int idx = sprintf(rawmsg, "PRIVMSG %s :", to);
+    size_t maxchunk = sizeof rawmsg - idx - 3;
+    size_t msglen = strlen(message);
+    char *tgt = rawmsg + idx;
+    while (msglen)
+    {
+	size_t chunksz = (msglen > maxchunk) ? maxchunk : msglen;
+	strncpy(tgt, message, chunksz);
+	strcpy(tgt+chunksz, "\r\n");
+	sendRaw(self, rawmsg);
+	message += chunksz;
+	msglen -= chunksz;
+    }
+    return 0;
+}
+
+SOEXPORT Event *IrcServer_connected(IrcServer *self)
+{
+    return self->connected;
+}
+
+SOEXPORT Event *IrcServer_disconnected(IrcServer *self)
+{
+    return self->disconnected;
+}
+
+SOEXPORT Event *IrcServer_msgReceived(IrcServer *self)
+{
+    return self->msgReceived;
+}
+
+SOEXPORT void IrcServer_destroy(IrcServer *self)
+{
+    if (!self) return;
+    if (self->conn)
+    {
+	Event_unregister(Connection_dataReceived(self->conn), self,
+		connDataReceived, 0);
+	Event_unregister(Connection_dataSent(self->conn), self,
+		connDataSent, 0);
+	Event_unregister(Connection_connected(self->conn), self,
+		connConnected, 0);
+	Event_unregister(Connection_closed(self->conn), self,
+		connClosed, 0);
+	IrcServer_disconnect(self);
+	Queue_destroy(self->sendQueue);
+	Connection_close(self->conn);
+    }
+    Event_destroy(self->connected);
+    Event_destroy(self->disconnected);
+    Event_destroy(self->msgReceived);
+    free(self->sendcmd);
+    free(self->nick);
+    free(self);
+}
