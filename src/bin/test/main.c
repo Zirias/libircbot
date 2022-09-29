@@ -34,13 +34,22 @@ static void msgReceived(void *receiver, void *sender, void *args)
 
     if (strlen(ea->message) > 5 && !strncmp(ea->message, "!say ", 5))
     {
-	IrcServer_sendMsg(server, ea->to, ea->message+5);
+	IrcServer_sendMsg(server, ea->to, ea->message+5, 0);
     }
-    else if (!strncmp(ea->message, "!bier ", 6)
-	    || !strcmp(ea->message, "!bier"))
+    else if (!strcmp(ea->message, "!bier"))
     {
 	IrcServer_sendMsg(server, ea->to,
-		bier[rand() % (sizeof bier / sizeof *bier)]);
+		bier[rand() % (sizeof bier / sizeof *bier)], 0);
+    }
+    else if (strlen(ea->message) > 6 && !strncmp(ea->message, "!bier ", 6))
+    {
+	const char *beerfor = ea->message + 6;
+	if (!beerfor[strcspn(beerfor, " ")])
+	{
+	    char buf[256];
+	    snprintf(buf, 256, "wird %s mit Bier abfüllen!", beerfor);
+	    IrcServer_sendMsg(server, ea->to, buf, 1);
+	}
     }
 }
 

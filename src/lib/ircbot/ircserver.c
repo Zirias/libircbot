@@ -207,9 +207,28 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	char *message = to+idx;
 	*message++ = 0;
 	if (*message == ':') ++message;
-	message[strcspn(message, "\r\n")] = 0;
-	MsgReceivedEventArgs ea = { .to = to, .message = message };
-	logfmt(L_DEBUG, "IrcServer: message %s: %s", to, message);
+	MsgReceivedEventArgs ea = { .from = 0, .to = to, .message = message };
+	const char *prefix = IrcMessage_prefix(msg);
+	char from[128];
+	if (prefix)
+	{
+	    size_t fromlen = strcspn(prefix, "!");
+	    if (fromlen < 127)
+	    {
+		strncpy(from, prefix, fromlen);
+		from[fromlen] = 0;
+		ea.from = from;
+	    }
+	}
+	if (ea.from)
+	{
+	    logfmt(L_DEBUG, "IrcServer: message from %s to %s: %s",
+		    from, to, message);
+	}
+	else
+	{
+	    logfmt(L_DEBUG, "IrcServer: message to %s: %s", to, message);
+	}
 	Event_raise(self->msgReceived, 0, &ea);
     }
     else if (!strcmp(cmd, "004"))
@@ -293,7 +312,7 @@ SOEXPORT void IrcServer_part(IrcServer *self, const char *channel)
 }
 
 SOEXPORT int IrcServer_sendMsg(IrcServer *self,
-	const char *to, const char *message)
+	const char *to, const char *message, int action)
 {
     if (self->connst <= 0) return -1;
     if (strlen(to) > 255)
@@ -302,7 +321,8 @@ SOEXPORT int IrcServer_sendMsg(IrcServer *self,
 	return -1;
     }
     char rawmsg[513];
-    int idx = sprintf(rawmsg, "PRIVMSG %s :", to);
+    int idx = sprintf(rawmsg,
+	    action ? "PRIVMSG %s :\001ACTION " : "PRIVMSG %s :", to);
     size_t maxchunk = sizeof rawmsg - idx - 3;
     size_t msglen = strlen(message);
     char *tgt = rawmsg + idx;
