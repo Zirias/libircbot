@@ -79,7 +79,8 @@ static void connConnected(void *receiver, void *sender, void *args)
 
     if (conn == self->conn)
     {
-	logmsg(L_DEBUG, "IrcServer: TCP connection established");
+	logfmt(L_INFO, "IrcServer: connected to %s, waiting for data ...",
+		Connection_remoteAddr(self->conn));
 	Event_register(Connection_dataReceived(self->conn), self,
 		connDataReceived, 0);
 	Event_register(Connection_dataSent(self->conn), self,
@@ -148,6 +149,7 @@ static void connDataReceived(void *receiver, void *sender, void *args)
 
     if (self->connst == -1)
     {
+	logmsg(L_INFO, "IrcServer: server is active, sending login data ...");
 	sendRawCmd(self, "NICK", self->nick);
 	char buf[512];
 	snprintf(buf, 512, "%s 0 * :%s", self->user, self->realname);
@@ -282,7 +284,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
     }
     else if (!strcmp(cmd, "004"))
     {
-	logmsg(L_INFO, "IrcServer: connected");
+	logmsg(L_INFO, "IrcServer: connected and logged in");
 	self->connst = 1;
 	Event_unregister(Service_tick(), self, connWaitLogin, 0);
 	if (List_size(self->channels))
