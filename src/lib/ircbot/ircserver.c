@@ -146,13 +146,13 @@ static void connDataReceived(void *receiver, void *sender, void *args)
 	self->recvbufsz -= pos;
     }
 
-    if (self->connst < 0)
+    if (self->connst == -1)
     {
 	sendRawCmd(self, "NICK", self->nick);
 	char buf[512];
 	snprintf(buf, 512, "%s 0 * :%s", self->user, self->realname);
 	sendRawCmd(self, "USER", buf);
-	self->connst = 0;
+	self->connst = -2;
     }
 }
 
@@ -210,7 +210,6 @@ static void connWaitLogin(void *receiver, void *sender, void *args)
 	logmsg(L_WARNING,
 		"IrcServer: timeout waiting for login, disconnecting ...");
 	Connection_close(self->conn);
-	self->conn = 0;
     }
 }
 
@@ -383,7 +382,7 @@ SOEXPORT int IrcServer_sendMsg(IrcServer *self,
     {
 	size_t chunksz = (msglen > maxchunk) ? maxchunk : msglen;
 	strncpy(tgt, message, chunksz);
-	strcpy(tgt+chunksz, action ? "\001\r\n" : "\r\n");
+	strcpy(tgt+chunksz, &"\001\r\n"[!action]);
 	sendRaw(self, rawmsg);
 	message += chunksz;
 	msglen -= chunksz;
