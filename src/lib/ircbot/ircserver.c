@@ -7,10 +7,14 @@
 #include "ircmessage.h"
 #include "list.h"
 #include "queue.h"
+#include "service.h"
 #include "util.h"
 
 #include <stdlib.h>
 #include <string.h>
+
+#define RECONNTICKS 300
+#define LOGINTICKS 20
 
 struct IrcServer {
     const char *remotehost;
@@ -27,6 +31,8 @@ struct IrcServer {
     char *sendcmd;
     int sending;
     int connst;
+    int loginticks;
+    int reconnticks;
     uint16_t recvbufsz;
     uint8_t recvbuf[8192];
 };
@@ -35,6 +41,8 @@ static void connConnected(void *receiver, void *sender, void *args);
 static void connClosed(void *receiver, void *sender, void *args);
 static void connDataReceived(void *receiver, void *sender, void *args);
 static void connDataSent(void *receiver, void *sender, void *args);
+static void connWaitReconn(void *receiver, void *sender, void *args);
+static void connWaitLogin(void *receiver, void *sender, void *args);
 
 static void sendRaw(IrcServer *self, const char *command);
 static void sendRawCmd(IrcServer *self, const char *cmd, const char *args);
@@ -77,6 +85,8 @@ static void connConnected(void *receiver, void *sender, void *args)
 		connDataSent, 0);
 	self->sendQueue = Queue_create();
 	self->connst = -1;
+	self->loginticks = LOGINTICKS;
+	Event_register(Service_tick(), self, connWaitLogin, 0);
     }
 }
 
@@ -94,6 +104,9 @@ static void connClosed(void *receiver, void *sender, void *args)
 	self->sendQueue = 0;
 	Event_raise(self->disconnected, 0, 0);
 	logmsg(L_INFO, "IrcServer: disconnected");
+	self->reconnticks = RECONNTICKS;
+	Event_unregister(Service_tick(), self, connWaitLogin, 0);
+	Event_register(Service_tick(), self, connWaitReconn, 0);
     }
 }
 
@@ -161,6 +174,47 @@ static void connDataSent(void *receiver, void *sender, void *args)
 		    (uint16_t)strlen(self->sendcmd), self);
 	}
 	else self->sending = 0;
+    }
+}
+
+static void connWaitReconn(void *receiver, void *sender, void *args)
+{
+    IrcServer *self = receiver;
+    (void)sender;
+    (void)args;
+
+    if (--self->reconnticks <= 0)
+    {
+	logmsg(L_INFO, "IrcServer: reconnecting ...");
+	if (IrcServer_connect(self) < 0)
+	{
+	    self->reconnticks = RECONNTICKS;
+	}
+	else
+	{
+	    Event_unregister(Service_tick(), self, connWaitReconn, 0);
+	}
+    }
+}
+
+static void connWaitLogin(void *receiver, void *sender, void *args)
+{
+    IrcServer *self = receiver;
+    (void)sender;
+    (void)args;
+
+    if (--self->loginticks <= 0)
+    {
+	Event_unregister(Service_tick(), self, connWaitLogin, 0);
+	logmsg(L_WARNING,
+		"IrcServer: timeout waiting for login, reconnecting ...");
+	Connection_close(self->conn);
+	self->conn = 0;
+	if (IrcServer_connect(self) < 0)
+	{
+	    self->reconnticks = RECONNTICKS;
+	    Event_register(Service_tick(), self, connWaitReconn, 0);
+	}
     }
 }
 
@@ -235,6 +289,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
     {
 	logmsg(L_INFO, "IrcServer: connected");
 	self->connst = 1;
+	Event_unregister(Service_tick(), self, connWaitLogin, 0);
 	if (List_size(self->channels))
 	{
 	    ListIterator *i = List_iterator(self->channels);
@@ -259,13 +314,15 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
     }
 }
 
-SOEXPORT void IrcServer_connect(IrcServer *self)
+SOEXPORT int IrcServer_connect(IrcServer *self)
 {
-    if (self->conn) return;
+    if (self->conn) return 0;
     logmsg(L_DEBUG, "IrcServer: initiating TCP connection");
     self->conn = Connection_createTcpClient(self->remotehost, self->port, 1);
+    if (!self->conn) return -1;
     Event_register(Connection_connected(self->conn), self, connConnected, 0);
     Event_register(Connection_closed(self->conn), self, connClosed, 0);
+    return 0;
 }
 
 SOEXPORT void IrcServer_disconnect(IrcServer *self)

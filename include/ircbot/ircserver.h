@@ -16,7 +16,7 @@ typedef struct MsgReceivedEventArgs
 DECLEXPORT IrcServer *IrcServer_create(const char *remotehost, int port,
 	const char *nick, const char *user, const char *realname)
     ATTR_RETNONNULL ATTR_NONNULL((1)) ATTR_NONNULL((3));
-DECLEXPORT void IrcServer_connect(IrcServer *self) CMETHOD;
+DECLEXPORT int IrcServer_connect(IrcServer *self) CMETHOD;
 DECLEXPORT void IrcServer_disconnect(IrcServer *self) CMETHOD;
 DECLEXPORT const char *IrcServer_nick(const IrcServer *self)
     CMETHOD ATTR_RETNONNULL;

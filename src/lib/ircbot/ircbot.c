@@ -5,13 +5,16 @@
 
 #include "service.h"
 
+#include <stdlib.h>
+
 static void startup(void *receiver, void *sender, void *args)
 {
     (void)sender;
-    (void)args;
 
     IrcServer *server = receiver;
-    IrcServer_connect(server);
+    StartupEventArgs *ea = args;
+
+    if (IrcServer_connect(server) < 0) ea->rc = EXIT_FAILURE;
 }
 
 static void shutdownok(void *receiver, void *sender, void *args)
@@ -38,6 +41,7 @@ static void shutdown(void *receiver, void *sender, void *args)
 SOEXPORT int IrcBot_run(Config *config, IrcServer *server)
 {
     Service_init(config);
+    Service_setTickInterval(1000);
     Event_register(Service_startup(), server, startup, 0);
     Event_register(Service_shutdown(), server, shutdown, 0);
 
