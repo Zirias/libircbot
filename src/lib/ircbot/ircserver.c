@@ -14,6 +14,7 @@
 #include <string.h>
 
 #define RECONNTICKS 300
+#define QUICKRECONNTICKS 5
 #define LOGINTICKS 20
 
 struct IrcServer {
@@ -99,12 +100,12 @@ static void connClosed(void *receiver, void *sender, void *args)
     if (conn == self->conn)
     {
 	self->conn = 0;
+	self->reconnticks = self->connst ? QUICKRECONNTICKS : RECONNTICKS;
 	self->connst = 0;
 	Queue_destroy(self->sendQueue);
 	self->sendQueue = 0;
 	Event_raise(self->disconnected, 0, 0);
 	logmsg(L_INFO, "IrcServer: disconnected");
-	self->reconnticks = RECONNTICKS;
 	Event_unregister(Service_tick(), self, connWaitLogin, 0);
 	Event_register(Service_tick(), self, connWaitReconn, 0);
     }
@@ -207,14 +208,9 @@ static void connWaitLogin(void *receiver, void *sender, void *args)
     {
 	Event_unregister(Service_tick(), self, connWaitLogin, 0);
 	logmsg(L_WARNING,
-		"IrcServer: timeout waiting for login, reconnecting ...");
+		"IrcServer: timeout waiting for login, disconnecting ...");
 	Connection_close(self->conn);
 	self->conn = 0;
-	if (IrcServer_connect(self) < 0)
-	{
-	    self->reconnticks = RECONNTICKS;
-	    Event_register(Service_tick(), self, connWaitReconn, 0);
-	}
     }
 }
 
