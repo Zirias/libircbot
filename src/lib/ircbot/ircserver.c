@@ -380,14 +380,14 @@ SOEXPORT int IrcServer_sendMsg(IrcServer *self,
     char rawmsg[513];
     int idx = sprintf(rawmsg,
 	    action ? "PRIVMSG %s :\001ACTION " : "PRIVMSG %s :", to);
-    size_t maxchunk = sizeof rawmsg - idx - 3;
+    size_t maxchunk = sizeof rawmsg - idx - 3 - !!action;
     size_t msglen = strlen(message);
     char *tgt = rawmsg + idx;
     while (msglen)
     {
 	size_t chunksz = (msglen > maxchunk) ? maxchunk : msglen;
 	strncpy(tgt, message, chunksz);
-	strcpy(tgt+chunksz, "\r\n");
+	strcpy(tgt+chunksz, action ? "\001\r\n" : "\r\n");
 	sendRaw(self, rawmsg);
 	message += chunksz;
 	msglen -= chunksz;
