@@ -242,7 +242,6 @@ static void sendRawCmd(IrcServer *self, const char *cmd, const char *args)
 static void handleMessage(IrcServer *self, const IrcMessage *msg)
 {
     const char *cmd = IrcMessage_command(msg);
-    logfmt(L_DEBUG, "IrcServer: received command %s", cmd);
     if (!strcmp(cmd, "PRIVMSG"))
     {
 	char buf[512];

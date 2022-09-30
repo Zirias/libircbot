@@ -1,3 +1,5 @@
+#include <ircbot/log.h>
+
 #include "ircmessage.h"
 #include "util.h"
 
@@ -29,6 +31,9 @@ SOLOCAL IrcMessage *IrcMessage_create(
 	*pos = endpos + 2;
 	return 0;
     }
+
+    logfmt(L_DEBUG, "IrcMessage: received %.*s",
+	    (int)(endpos - *pos), (const char *)buf + *pos);
 
     uint16_t currpos = *pos;
     *pos = endpos + 2;
