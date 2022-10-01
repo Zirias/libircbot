@@ -1,6 +1,7 @@
 ircbot_MODULES:=		client \
 				connection \
 				event \
+				hashtable \
 				ircbot \
 				ircmessage \
 				ircserver \
