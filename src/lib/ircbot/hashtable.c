@@ -1,4 +1,5 @@
-#include "hashtable.h"
+#include <ircbot/hashtable.h>
+
 #include "util.h"
 
 #include <stdint.h>
@@ -34,7 +35,7 @@ struct HashTableIterator
     IteratorEntry entries[];
 };
 
-SOLOCAL HashTable *HashTable_create(uint8_t bits)
+SOEXPORT HashTable *HashTable_create(uint8_t bits)
 {
     size_t htsize = HT_SIZE(bits);
     HashTable *self = xmalloc(sizeof *self + htsize * sizeof *self->bucket);
@@ -43,7 +44,7 @@ SOLOCAL HashTable *HashTable_create(uint8_t bits)
     return self;
 }
 
-SOLOCAL void HashTable_set(HashTable *self, const char *key,
+SOEXPORT void HashTable_set(HashTable *self, const char *key,
 	void *obj, void (*deleter)(void *))
 {
     uint8_t h = hashstr(key, self->bits);
@@ -74,7 +75,7 @@ SOLOCAL void HashTable_set(HashTable *self, const char *key,
     }
 }
 
-SOLOCAL void HashTable_delete(HashTable *self, const char *key)
+SOEXPORT void HashTable_delete(HashTable *self, const char *key)
 {
     uint8_t h = hashstr(key, self->bits);
     HashTableEntry *parent = 0;
@@ -96,12 +97,12 @@ SOLOCAL void HashTable_delete(HashTable *self, const char *key)
     }
 }
 
-SOLOCAL size_t HashTable_count(const HashTable *self)
+SOEXPORT size_t HashTable_count(const HashTable *self)
 {
     return self->count;
 }
 
-SOLOCAL void *HashTable_get(const HashTable *self, const char *key)
+SOEXPORT void *HashTable_get(const HashTable *self, const char *key)
 {
     HashTableEntry *entry = self->bucket[hashstr(key, self->bits)];
     while (entry)
@@ -112,7 +113,7 @@ SOLOCAL void *HashTable_get(const HashTable *self, const char *key)
     return 0;
 }
 
-SOLOCAL HashTableIterator *HashTable_iterator(const HashTable *self)
+SOEXPORT HashTableIterator *HashTable_iterator(const HashTable *self)
 {
     HashTableIterator *iter = xmalloc(
 	    sizeof *iter + self->count * sizeof *iter->entries);
@@ -133,7 +134,7 @@ SOLOCAL HashTableIterator *HashTable_iterator(const HashTable *self)
     return iter;
 }
 
-SOLOCAL void HashTable_destroy(HashTable *self)
+SOEXPORT void HashTable_destroy(HashTable *self)
 {
     if (!self) return;
     for (unsigned h = 0; h < HT_SIZE(self->bits); ++h)
@@ -152,26 +153,26 @@ SOLOCAL void HashTable_destroy(HashTable *self)
     free(self);
 }
 
-SOLOCAL int HashTableIterator_moveNext(HashTableIterator *self)
+SOEXPORT int HashTableIterator_moveNext(HashTableIterator *self)
 {
     if (self->pos >= self->count) self->pos = 0;
     else ++self->pos;
     return self->pos < self->count;
 }
 
-SOLOCAL const char *HashTableIterator_key(const HashTableIterator *self)
+SOEXPORT const char *HashTableIterator_key(const HashTableIterator *self)
 {
     if (self->pos >= self->count) return 0;
     return self->entries[self->pos].key;
 }
 
-SOLOCAL void *HashTableIterator_current(const HashTableIterator *self)
+SOEXPORT void *HashTableIterator_current(const HashTableIterator *self)
 {
     if (self->pos >= self->count) return 0;
     return self->entries[self->pos].obj;
 }
 
-SOLOCAL void HashTableIterator_destroy(HashTableIterator *self)
+SOEXPORT void HashTableIterator_destroy(HashTableIterator *self)
 {
     free(self);
 }

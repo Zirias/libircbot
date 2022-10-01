@@ -9,16 +9,21 @@ ircbot_MODULES:=		client \
 				log \
 				queue \
 				service \
+				stringbuilder \
 				threadpool \
 				util
 
 ircbot_HEADERS_INSTALL:= 	config \
 				decl \
 				event \
+				hashtable \
 				ircbot \
 				ircserver \
+				list \
 				log \
-				service
+				queue \
+				service \
+				stringbuilder
 
 ircbot_LDFLAGS:=		-pthread
 ircbot_HEADERDIR:=		include$(PSEP)ircbot

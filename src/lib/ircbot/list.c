@@ -1,4 +1,5 @@
-#include "list.h"
+#include <ircbot/list.h>
+
 #include "util.h"
 
 #include <stdlib.h>
@@ -26,7 +27,7 @@ struct ListIterator
     ListItem items[];
 };
 
-SOLOCAL List *List_create(void)
+SOEXPORT List *List_create(void)
 {
     List *self = xmalloc(sizeof *self);
     self->capa = INITIALCAPA;
@@ -35,12 +36,12 @@ SOLOCAL List *List_create(void)
     return self;
 }
 
-SOLOCAL size_t List_size(const List *self)
+SOEXPORT size_t List_size(const List *self)
 {
     return self->count;
 }
 
-SOLOCAL void List_append(List *self, void *obj, void (*deleter)(void *))
+SOEXPORT void List_append(List *self, void *obj, void (*deleter)(void *))
 {
     if (self->count == self->capa)
     {
@@ -66,7 +67,7 @@ static void removeAt(List *self, size_t i, int delete)
     --self->count;
 }
 
-SOLOCAL void List_remove(List *self, void *obj)
+SOEXPORT void List_remove(List *self, void *obj)
 {
     for (size_t i = 0; i < self->count; ++i)
     {
@@ -78,7 +79,7 @@ SOLOCAL void List_remove(List *self, void *obj)
     }
 }
 
-SOLOCAL void List_removeAll(List *self,
+SOEXPORT void List_removeAll(List *self,
 	int (*matcher)(void *, const void *), const void *arg)
 {
     for (size_t i = 0; i < self->count; ++i)
@@ -91,7 +92,7 @@ SOLOCAL void List_removeAll(List *self,
     }
 }
 
-SOLOCAL ListIterator *List_iterator(const List *self)
+SOEXPORT ListIterator *List_iterator(const List *self)
 {
     ListIterator *iter = xmalloc(sizeof *iter +
 	    self->count * sizeof *self->items);
@@ -101,7 +102,7 @@ SOLOCAL ListIterator *List_iterator(const List *self)
     return iter;
 }
 
-SOLOCAL void List_destroy(List *self)
+SOEXPORT void List_destroy(List *self)
 {
     if (!self) return;
     for (size_t i = 0; i < self->count; ++i)
@@ -112,20 +113,20 @@ SOLOCAL void List_destroy(List *self)
     free(self);
 }
 
-SOLOCAL int ListIterator_moveNext(ListIterator *self)
+SOEXPORT int ListIterator_moveNext(ListIterator *self)
 {
     if (self->pos >= self->count) self->pos = 0;
     else ++self->pos;
     return self->pos < self->count;
 }
 
-SOLOCAL void *ListIterator_current(const ListIterator *self)
+SOEXPORT void *ListIterator_current(const ListIterator *self)
 {
     if (self->pos >= self->count) return 0;
     return self->items[self->pos].obj;
 }
 
-SOLOCAL void ListIterator_destroy(ListIterator *self)
+SOEXPORT void ListIterator_destroy(ListIterator *self)
 {
     free(self);
 }

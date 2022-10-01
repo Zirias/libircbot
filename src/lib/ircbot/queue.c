@@ -1,4 +1,5 @@
-#include "queue.h"
+#include <ircbot/queue.h>
+
 #include "util.h"
 
 #include <stdlib.h>
@@ -35,7 +36,7 @@ static inline void expand(Queue *self)
     self->capa = newcapa;
 }
 
-SOLOCAL Queue *Queue_create(void)
+SOEXPORT Queue *Queue_create(void)
 {
     Queue *self = xmalloc(sizeof *self);
     self->count = 0;
@@ -46,7 +47,7 @@ SOLOCAL Queue *Queue_create(void)
     return self;
 }
 
-SOLOCAL void Queue_enqueue(Queue *self, void *obj, void (*deleter)(void *))
+SOEXPORT void Queue_enqueue(Queue *self, void *obj, void (*deleter)(void *))
 {
     if (self->count == self->capa) expand(self);
     self->entries[self->back].obj = obj;
@@ -55,7 +56,7 @@ SOLOCAL void Queue_enqueue(Queue *self, void *obj, void (*deleter)(void *))
     ++self->count;
 }
 
-SOLOCAL void *Queue_dequeue(Queue *self)
+SOEXPORT void *Queue_dequeue(Queue *self)
 {
     if (!self->count) return 0;
     void *obj = self->entries[self->front].obj;
@@ -64,7 +65,7 @@ SOLOCAL void *Queue_dequeue(Queue *self)
     return obj;
 }
 
-SOLOCAL void Queue_destroy(Queue *self)
+SOEXPORT void Queue_destroy(Queue *self)
 {
     if (!self) return;
     if (self->count) for (size_t i = 0, pos = self->front; i < self->count; ++i)

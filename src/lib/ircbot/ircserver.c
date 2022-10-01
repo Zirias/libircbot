@@ -1,12 +1,12 @@
 #include <ircbot/event.h>
 #include <ircbot/ircserver.h>
 #include <ircbot/log.h>
+#include <ircbot/list.h>
+#include <ircbot/queue.h>
 
 #include "client.h"
 #include "connection.h"
 #include "ircmessage.h"
-#include "list.h"
-#include "queue.h"
 #include "service.h"
 #include "util.h"
 
