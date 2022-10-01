@@ -3,6 +3,7 @@ ircbot_MODULES:=		client \
 				event \
 				hashtable \
 				ircbot \
+				ircchannel \
 				ircmessage \
 				ircserver \
 				list \
@@ -18,6 +19,7 @@ ircbot_HEADERS_INSTALL:= 	config \
 				event \
 				hashtable \
 				ircbot \
+				ircchannel \
 				ircserver \
 				list \
 				log \
