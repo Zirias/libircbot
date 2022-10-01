@@ -252,42 +252,22 @@ static inline void destroyIrcChannel(void *chan)
 static void handleMessage(IrcServer *self, const IrcMessage *msg)
 {
     const char *cmd = IrcMessage_command(msg);
-    if (!strcmp(cmd, "PRIVMSG"))
+    const List *params = IrcMessage_params(msg);
+    if (!strcmp(cmd, "PRIVMSG") && List_size(params) == 2)
     {
-	char buf[512];
-	strncpy(buf, IrcMessage_params(msg), sizeof buf);
-	buf[sizeof buf - 1] = 0;
-	char *to = buf;
-	size_t idx = strcspn(to, " ");
-	if (!to[idx])
-	{
-	    logmsg(L_WARNING, "IrcServer: Erroneous PRIVMSG received");
-	    return;
-	}
-	char *message = to+idx;
-	*message++ = 0;
-	if (*message == ':') ++message;
-	MsgReceivedEventArgs ea = { .from = 0, .to = to, .message = message };
-	const char *prefix = IrcMessage_prefix(msg);
-	char from[128];
-	if (prefix)
-	{
-	    size_t fromlen = strcspn(prefix, "!");
-	    if (fromlen < 127)
-	    {
-		strncpy(from, prefix, fromlen);
-		from[fromlen] = 0;
-		ea.from = from;
-	    }
-	}
+	MsgReceivedEventArgs ea = {
+	    .from = IrcMessage_prefix(msg),
+	    .to = List_at(params, 0),
+	    .message = List_at(params, 1)
+	};
 	if (ea.from)
 	{
 	    logfmt(L_DEBUG, "IrcServer: message from %s to %s: %s",
-		    from, to, message);
+		    ea.from, ea.to, ea.message);
 	}
 	else
 	{
-	    logfmt(L_DEBUG, "IrcServer: message to %s: %s", to, message);
+	    logfmt(L_DEBUG, "IrcServer: message to %s: %s", ea.to, ea.message);
 	}
 	Event_raise(self->msgReceived, 0, &ea);
     }
@@ -316,13 +296,13 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
     }
     else if (!strcmp(cmd, "PING"))
     {
-	sendRawCmd(self, "PONG", IrcMessage_params(msg));
+	sendRawCmd(self, "PONG", IrcMessage_rawParams(msg));
     }
-    else if (!strcmp(cmd, "JOIN")
+    else if (!strcmp(cmd, "JOIN") && List_size(params)
 	    && !strncmp(IrcMessage_prefix(msg), self->nick, strlen(self->nick))
 	    && strcspn(IrcMessage_prefix(msg), "!") == strlen(self->nick))
     {
-	IrcChannel *channel = IrcChannel_create(IrcMessage_params(msg));
+	IrcChannel *channel = IrcChannel_create(List_at(params, 0));
 	List_append(self->activeChannels, channel, destroyIrcChannel);
 	Event_raise(self->joined, 0, channel);
     }

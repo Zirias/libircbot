@@ -10,6 +10,7 @@ typedef struct ListIterator ListIterator;
 
 DECLEXPORT List *List_create(void) ATTR_RETNONNULL;
 DECLEXPORT size_t List_size(const List *self) CMETHOD ATTR_PURE;
+DECLEXPORT void *List_at(const List *self, size_t idx) CMETHOD ATTR_PURE;
 DECLEXPORT void List_append(List *self, void *obj, void (*deleter)(void *))
     CMETHOD ATTR_NONNULL((2));
 DECLEXPORT void List_remove(List *self, void *obj)

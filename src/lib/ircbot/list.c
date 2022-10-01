@@ -41,6 +41,12 @@ SOEXPORT size_t List_size(const List *self)
     return self->count;
 }
 
+SOEXPORT void *List_at(const List *self, size_t idx)
+{
+    if (idx >= self->count) return 0;
+    return self->items[idx].obj;
+}
+
 SOEXPORT void List_append(List *self, void *obj, void (*deleter)(void *))
 {
     if (self->count == self->capa)

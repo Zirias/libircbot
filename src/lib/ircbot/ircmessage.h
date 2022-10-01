@@ -2,6 +2,7 @@
 #define IRCBOT_INT_IRCMESSAGE_H
 
 #include <ircbot/decl.h>
+#include <ircbot/list.h>
 
 #include <stdint.h>
 
@@ -13,8 +14,10 @@ const char *IrcMessage_prefix(const IrcMessage *self)
     CMETHOD ATTR_PURE;
 const char *IrcMessage_command(const IrcMessage *self)
     CMETHOD ATTR_RETNONNULL ATTR_PURE;
-const char *IrcMessage_params(const IrcMessage *self)
-    CMETHOD ATTR_PURE;
+const List *IrcMessage_params(const IrcMessage *self)
+    CMETHOD ATTR_RETNONNULL ATTR_PURE;
+const char *IrcMessage_rawParams(const IrcMessage *self)
+    CMETHOD ATTR_RETNONNULL ATTR_PURE;
 void IrcMessage_destroy(IrcMessage *self);
 
 #endif

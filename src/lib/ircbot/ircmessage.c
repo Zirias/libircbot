@@ -1,3 +1,4 @@
+#include <ircbot/list.h>
 #include <ircbot/log.h>
 
 #include "ircmessage.h"
@@ -10,7 +11,8 @@ struct IrcMessage
 {
     char *prefix;
     char *command;
-    char *params;
+    char *rawParams;
+    List *params;
 };
 
 SOLOCAL IrcMessage *IrcMessage_create(
@@ -69,13 +71,24 @@ SOLOCAL IrcMessage *IrcMessage_create(
     currpos = e;
     if (buf[currpos] == 0x20) ++currpos;
 
+    self->params = List_create();
     if (currpos < endpos)
     {
-	self->params = xmalloc(endpos-currpos+1);
-	memcpy(self->params, buf+currpos, endpos-currpos);
-	self->params[endpos-currpos] = 0;
+	self->rawParams = xmalloc(endpos-currpos+1);
+	memcpy(self->rawParams, buf+currpos, endpos-currpos);
+	self->rawParams[endpos-currpos] = 0;
+	for (char *p = self->rawParams; p;)
+	{
+	    if (*p == ':')
+	    {
+		List_append(self->params, copystr(++p), free);
+		break;
+	    }
+	    else List_append(self->params, copystr(strsep(&p, " ")), free);
+	}
+	memcpy(self->rawParams, buf+currpos, endpos-currpos);
     }
-    else self->params = 0;
+    else self->rawParams = 0;
 
     return self;
 }
@@ -90,9 +103,14 @@ SOLOCAL const char *IrcMessage_command(const IrcMessage *self)
     return self->command;
 }
 
-SOLOCAL const char *IrcMessage_params(const IrcMessage *self)
+SOLOCAL const List *IrcMessage_params(const IrcMessage *self)
 {
     return self->params;
+}
+
+SOLOCAL const char *IrcMessage_rawParams(const IrcMessage *self)
+{
+    return self->rawParams;
 }
 
 SOLOCAL void IrcMessage_destroy(IrcMessage *self)
@@ -100,7 +118,8 @@ SOLOCAL void IrcMessage_destroy(IrcMessage *self)
     if (!self) return;
     free(self->prefix);
     free(self->command);
-    free(self->params);
+    free(self->rawParams);
+    List_destroy(self->params);
     free(self);
 }
 

@@ -41,16 +41,17 @@ SOEXPORT const HashTable *IrcChannel_nicks(const IrcChannel *self)
 SOLOCAL void IrcChannel_handleMessage(IrcChannel *self, const IrcMessage *msg)
 {
     const char *cmd = IrcMessage_command(msg);
-    if (!strcmp(cmd, "JOIN")
-	    && !strcmp(IrcMessage_params(msg), self->name))
+    const List *params = IrcMessage_params(msg);
+    if (!strcmp(cmd, "JOIN") && List_size(params)
+	    && !strcmp(List_at(params, 0), self->name))
     {
 	char buf[128];
 	sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
 	HashTable_set(self->nicks, buf, self->name, 0);
 	Event_raise(self->joined, 0, buf);
     }
-    else if ((!strcmp(cmd, "PART")
-		&& !strcmp(IrcMessage_params(msg), self->name))
+    else if ((!strcmp(cmd, "PART") && List_size(params)
+		&& !strcmp(List_at(params, 0), self->name))
 	    || !strcmp(cmd, "QUIT"))
     {
 	char buf[128];
@@ -58,35 +59,23 @@ SOLOCAL void IrcChannel_handleMessage(IrcChannel *self, const IrcMessage *msg)
 	HashTable_delete(self->nicks, buf);
 	Event_raise(self->parted, 0, buf);
     }
-    else if (!strcmp(cmd, "353"))
+    else if (!strcmp(cmd, "353") && List_size(params) == 4
+	    && !strcmp(List_at(params, 2), self->name))
     {
-	char *params = copystr(IrcMessage_params(msg));
-	char *i = params;
-	char *nick;
-	if (strsep(&i, " ") && strsep(&i, " ") &&
-		(nick = strsep(&i, " ")) && !strcmp(nick, self->name) &&
-		(nick = strsep(&i, " ")) && *nick == ':')
+	char *nicklist = copystr(List_at(params, 3));
+	char *i = nicklist;
+	char *nick = strsep(&i, " ");
+	while (nick)
 	{
-	    ++nick;
-	    while (nick)
-	    {
-		HashTable_set(self->nicks, nick, self->name, 0);
-		nick = strsep(&i, " ");
-	    }
+	    HashTable_set(self->nicks, nick, self->name, 0);
+	    nick = strsep(&i, " ");
 	}
-	free(params);
+	free(nicklist);
     }
-    else if (!strcmp(cmd, "366"))
+    else if (!strcmp(cmd, "366") && List_size(params) > 1
+	    && !strcmp(List_at(params, 1), self->name))
     {
-	char *params = copystr(IrcMessage_params(msg));
-	char *i = params;
-	char *chan;
-	if (strsep(&i, " ") && (chan = strsep(&i, " "))
-		&& !strcmp(chan, self->name))
-	{
-	    Event_raise(self->entered, 0, 0);
-	}
-	free(params);
+	Event_raise(self->entered, 0, 0);
     }
 }
 
