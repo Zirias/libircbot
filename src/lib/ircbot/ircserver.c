@@ -6,6 +6,7 @@
 
 #include "client.h"
 #include "connection.h"
+#include "ircchannel.h"
 #include "ircmessage.h"
 #include "service.h"
 #include "util.h"
@@ -24,11 +25,13 @@ struct IrcServer {
     const char *user;
     const char *realname;
     List *channels;
+    List *activeChannels;
     Connection *conn;
     Queue *sendQueue;
     Event *connected;
     Event *disconnected;
     Event *msgReceived;
+    Event *joined;
     char *sendcmd;
     int sending;
     int connst;
@@ -59,11 +62,13 @@ SOEXPORT IrcServer *IrcServer_create(const char *remotehost, int port,
     self->user = user;
     self->realname = realname;
     self->channels = List_create();
+    self->activeChannels = List_create();
     self->conn = 0;
     self->sendQueue = 0;
     self->connected = Event_create(self);
     self->disconnected = Event_create(self);
     self->msgReceived = Event_create(self);
+    self->joined = Event_create(self);
     self->sendcmd = 0;
     self->sending = 0;
     self->connst = 0;
@@ -239,6 +244,11 @@ static void sendRawCmd(IrcServer *self, const char *cmd, const char *args)
     sendRaw(self, buf);
 }
 
+static inline void destroyIrcChannel(void *chan)
+{
+    IrcChannel_destroy(chan);
+}
+
 static void handleMessage(IrcServer *self, const IrcMessage *msg)
 {
     const char *cmd = IrcMessage_command(msg);
@@ -307,6 +317,25 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
     else if (!strcmp(cmd, "PING"))
     {
 	sendRawCmd(self, "PONG", IrcMessage_params(msg));
+    }
+    else if (!strcmp(cmd, "JOIN")
+	    && !strncmp(IrcMessage_prefix(msg), self->nick, strlen(self->nick))
+	    && strcspn(IrcMessage_prefix(msg), "!") == strlen(self->nick))
+    {
+	IrcChannel *channel = IrcChannel_create(IrcMessage_params(msg));
+	List_append(self->activeChannels, channel, destroyIrcChannel);
+	Event_raise(self->joined, 0, channel);
+    }
+    else if (!strcmp(cmd, "JOIN") || !strcmp(cmd, "PART")
+	    || !strcmp(cmd, "QUIT") || !strcmp(cmd, "353")
+	    || !strcmp(cmd, "366"))
+    {
+	ListIterator *i = List_iterator(self->activeChannels);
+	while (ListIterator_moveNext(i))
+	{
+	    IrcChannel_handleMessage(ListIterator_current(i), msg);
+	}
+	ListIterator_destroy(i);
     }
 }
 
@@ -406,6 +435,11 @@ SOEXPORT Event *IrcServer_msgReceived(IrcServer *self)
     return self->msgReceived;
 }
 
+SOEXPORT Event *IrcServer_joined(IrcServer *self)
+{
+    return self->joined;
+}
+
 SOEXPORT void IrcServer_destroy(IrcServer *self)
 {
     if (!self) return;
@@ -426,7 +460,9 @@ SOEXPORT void IrcServer_destroy(IrcServer *self)
     Event_destroy(self->connected);
     Event_destroy(self->disconnected);
     Event_destroy(self->msgReceived);
+    Event_destroy(self->joined);
     List_destroy(self->channels);
+    List_destroy(self->activeChannels);
     free(self->sendcmd);
     free(self->nick);
     free(self);

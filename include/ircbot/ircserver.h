@@ -35,6 +35,8 @@ DECLEXPORT Event *IrcServer_disconnected(IrcServer *self)
     CMETHOD ATTR_RETNONNULL ATTR_PURE;
 DECLEXPORT Event *IrcServer_msgReceived(IrcServer *self)
     CMETHOD ATTR_RETNONNULL ATTR_PURE;
+DECLEXPORT Event *IrcServer_joined(IrcServer *self)
+    CMETHOD ATTR_RETNONNULL ATTR_PURE;
 DECLEXPORT void IrcServer_destroy(IrcServer *self);
 
 #endif

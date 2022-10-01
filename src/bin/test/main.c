@@ -1,6 +1,8 @@
 #include <ircbot/config.h>
 #include <ircbot/event.h>
+#include <ircbot/hashtable.h>
 #include <ircbot/ircbot.h>
+#include <ircbot/ircchannel.h>
 #include <ircbot/ircserver.h>
 #include <ircbot/log.h>
 
@@ -60,6 +62,27 @@ static void msgReceived(void *receiver, void *sender, void *args)
     }
 }
 
+static void userJoined(void *receiver, void *sender, void *args)
+{
+    IrcServer *server = receiver;
+    IrcChannel *channel = sender;
+    const char *nick = args;
+
+    char buf[256];
+    snprintf(buf, 256, "Hallo %s!", nick);
+    IrcServer_sendMsg(server, IrcChannel_name(channel), buf, 0);
+}
+
+static void chanJoined(void *receiver, void *sender, void *args)
+{
+    (void)receiver;
+
+    IrcServer *server = sender;
+    IrcChannel *channel = args;
+
+    Event_register(IrcChannel_joined(channel), server, userJoined, 0);
+}
+
 int main(void)
 {
     setFileLogger(stderr);
@@ -72,6 +95,7 @@ int main(void)
     IrcServer *server = IrcServer_create(SERVER, PORT, NICK, USER, REALNAME);
     IrcServer_join(server, CHANNEL);
     Event_register(IrcServer_msgReceived(server), 0, msgReceived, 0);
+    Event_register(IrcServer_joined(server), 0, chanJoined, 0);
 
     int rc = IrcBot_run(&config, server);
 
