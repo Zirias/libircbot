@@ -23,6 +23,7 @@
 struct IrcServer {
     const char *remotehost;
     int port;
+    char *name;
     char *nick;
     const char *user;
     const char *realname;
@@ -44,6 +45,8 @@ struct IrcServer {
     uint8_t recvbuf[8192];
 };
 
+#define servername(s) ((s)->name ? (s)->name : (s)->remotehost)
+
 static void connConnected(void *receiver, void *sender, void *args);
 static void connClosed(void *receiver, void *sender, void *args);
 static void connDataReceived(void *receiver, void *sender, void *args);
@@ -62,6 +65,7 @@ SOEXPORT IrcServer *IrcServer_create(const char *remotehost, int port,
     IrcServer *self = xmalloc(sizeof *self);
     self->remotehost = remotehost;
     self->port = port;
+    self->name = 0;
     self->nick = copystr(nick);
     self->user = user;
     self->realname = realname;
@@ -115,7 +119,9 @@ static void connClosed(void *receiver, void *sender, void *args)
 	Queue_destroy(self->sendQueue);
 	self->sendQueue = 0;
 	Event_raise(self->disconnected, 0, 0);
-	logmsg(L_INFO, "IrcServer: disconnected");
+	logfmt(L_INFO, "IrcServer: [%s] disconnected", servername(self));
+	free(self->name);
+	self->name = 0;
 	Event_unregister(Service_tick(), self, connWaitLogin, 0);
 	Event_register(Service_tick(), self, connWaitReconn, 0);
     }
@@ -149,7 +155,7 @@ static void connDataReceived(void *receiver, void *sender, void *args)
     }
     else if (self->recvbufsz - pos > 4096)
     {
-	logmsg(L_ERROR, "IrcServer: protocol error.");
+	logfmt(L_ERROR, "IrcServer: [%s] protocol error.", servername(self));
 	self->recvbufsz = 0;
     }
     else
@@ -160,7 +166,8 @@ static void connDataReceived(void *receiver, void *sender, void *args)
 
     if (self->connst == -1)
     {
-	logmsg(L_INFO, "IrcServer: server is active, sending login data ...");
+	logfmt(L_INFO, "IrcServer: [%s] sending login data ...",
+		servername(self));
 	sendRawCmd(self, "NICK", self->nick);
 	char buf[512];
 	snprintf(buf, 512, "%s 0 * :%s", self->user, self->realname);
@@ -199,7 +206,7 @@ static void connWaitReconn(void *receiver, void *sender, void *args)
 
     if (--self->reconnticks <= 0)
     {
-	logmsg(L_INFO, "IrcServer: reconnecting ...");
+	logfmt(L_INFO, "IrcServer: [%s] reconnecting ...", servername(self));
 	if (IrcServer_connect(self) < 0)
 	{
 	    self->reconnticks = RECONNTICKS;
@@ -220,8 +227,9 @@ static void connWaitLogin(void *receiver, void *sender, void *args)
     if (--self->loginticks <= 0)
     {
 	Event_unregister(Service_tick(), self, connWaitLogin, 0);
-	logmsg(L_WARNING,
-		"IrcServer: timeout waiting for login, disconnecting ...");
+	logfmt(L_WARNING,
+		"IrcServer: [%s] timeout waiting for login, disconnecting ...",
+		servername(self));
 	Connection_close(self->conn);
     }
 }
@@ -234,14 +242,16 @@ static void checkIdle(void *receiver, void *sender, void *args)
 
     if (--self->idleticks == 0)
     {
-	logmsg(L_INFO, "IrcServer: pinging idle connection ...");
+	logfmt(L_INFO, "IrcServer: [%s] pinging idle connection ...",
+		servername(self));
 	sendRawCmd(self, "PING", self->nick);
     }
     else if (self->idleticks <= -PINGTICKS)
     {
 	Event_unregister(Service_tick(), self, checkIdle, 0);
-	logmsg(L_WARNING,
-		"IrcServer: timeout waiting for pong, disconnecting ...");
+	logfmt(L_WARNING,
+		"IrcServer: [%s] timeout waiting for pong, disconnecting ...",
+		servername(self));
 	Connection_close(self->conn);
     }
 }
@@ -297,9 +307,11 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	}
 	Event_raise(self->msgReceived, 0, &ea);
     }
-    else if (!strcmp(cmd, "004"))
+    else if (!strcmp(cmd, "004") && List_size(params) > 2)
     {
-	logmsg(L_INFO, "IrcServer: connected and logged in");
+	free(self->name);
+	self->name = copystr(List_at(params, 1));
+	logfmt(L_INFO, "IrcServer: [%s] connected and logged in", self->name);
 	self->connst = 1;
 	Event_unregister(Service_tick(), self, connWaitLogin, 0);
 	Event_register(Service_tick(), self, checkIdle, 0);
@@ -363,6 +375,11 @@ SOEXPORT void IrcServer_disconnect(IrcServer *self)
     sendRaw(self, "QUIT :bye.\r\n");
 }
 
+SOEXPORT const char *IrcServer_name(const IrcServer *self)
+{
+    return servername(self);
+}
+
 SOEXPORT const char *IrcServer_nick(const IrcServer *self)
 {
     return self->nick;
@@ -406,7 +423,8 @@ SOEXPORT int IrcServer_sendMsg(IrcServer *self,
     if (self->connst <= 0) return -1;
     if (strlen(to) > 255)
     {
-	logfmt(L_ERROR, "IrcServer: Invalid message recipient %s", to);
+	logfmt(L_ERROR, "IrcServer: [%s] Invalid message recipient %s",
+		servername(self), to);
 	return -1;
     }
     char rawmsg[513];
@@ -471,6 +489,7 @@ SOEXPORT void IrcServer_destroy(IrcServer *self)
     List_destroy(self->channels);
     List_destroy(self->activeChannels);
     free(self->sendcmd);
+    free(self->name);
     free(self->nick);
     free(self);
 }

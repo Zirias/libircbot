@@ -18,6 +18,8 @@ DECLEXPORT IrcServer *IrcServer_create(const char *remotehost, int port,
     ATTR_RETNONNULL ATTR_NONNULL((1)) ATTR_NONNULL((3));
 DECLEXPORT int IrcServer_connect(IrcServer *self) CMETHOD;
 DECLEXPORT void IrcServer_disconnect(IrcServer *self) CMETHOD;
+DECLEXPORT const char *IrcServer_name(const IrcServer *self)
+    CMETHOD ATTR_RETNONNULL;
 DECLEXPORT const char *IrcServer_nick(const IrcServer *self)
     CMETHOD ATTR_RETNONNULL;
 DECLEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
