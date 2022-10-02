@@ -13,11 +13,15 @@ typedef struct MsgReceivedEventArgs
     const char *message;
 } MsgReceivedEventArgs;
 
-DECLEXPORT IrcServer *IrcServer_create(const char *remotehost, int port,
+DECLEXPORT IrcServer *IrcServer_create(const char *id,
+	const char *remotehost, int port,
 	const char *nick, const char *user, const char *realname)
-    ATTR_RETNONNULL ATTR_NONNULL((1)) ATTR_NONNULL((3));
+    ATTR_RETNONNULL ATTR_NONNULL((1))
+    ATTR_NONNULL((2)) ATTR_NONNULL((4));
 DECLEXPORT int IrcServer_connect(IrcServer *self) CMETHOD;
 DECLEXPORT void IrcServer_disconnect(IrcServer *self) CMETHOD;
+DECLEXPORT const char *IrcServer_id(const IrcServer *self)
+    CMETHOD ATTR_RETNONNULL;
 DECLEXPORT const char *IrcServer_name(const IrcServer *self)
     CMETHOD ATTR_RETNONNULL;
 DECLEXPORT const char *IrcServer_nick(const IrcServer *self)

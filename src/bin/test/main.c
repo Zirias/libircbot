@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 
+#define IRCNET "libera"
 #define SERVER "irc.libera.chat"
 #define PORT 6667
 #define NICK "wumsbot"
@@ -92,7 +93,8 @@ int main(void)
     memset(&config, 0, sizeof config);
     config.uid = -1;
 
-    IrcServer *server = IrcServer_create(SERVER, PORT, NICK, USER, REALNAME);
+    IrcServer *server = IrcServer_create(IRCNET, SERVER, PORT,
+	    NICK, USER, REALNAME);
     IrcServer_join(server, CHANNEL);
     Event_register(IrcServer_msgReceived(server), 0, msgReceived, 0);
     Event_register(IrcServer_joined(server), 0, chanJoined, 0);

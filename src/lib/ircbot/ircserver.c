@@ -21,6 +21,7 @@
 #define PINGTICKS 3
 
 struct IrcServer {
+    const char *id;
     const char *remotehost;
     int port;
     char *name;
@@ -59,10 +60,12 @@ static void sendRaw(IrcServer *self, const char *command);
 static void sendRawCmd(IrcServer *self, const char *cmd, const char *args);
 static void handleMessage(IrcServer *self, const IrcMessage *msg);
 
-SOEXPORT IrcServer *IrcServer_create(const char *remotehost, int port,
+SOEXPORT IrcServer *IrcServer_create(const char *id,
+	const char *remotehost, int port,
 	const char *nick, const char *user, const char *realname)
 {
     IrcServer *self = xmalloc(sizeof *self);
+    self->id = id;
     self->remotehost = remotehost;
     self->port = port;
     self->name = 0;
@@ -373,6 +376,11 @@ SOEXPORT void IrcServer_disconnect(IrcServer *self)
 {
     if (!self->conn) return;
     sendRaw(self, "QUIT :bye.\r\n");
+}
+
+SOEXPORT const char *IrcServer_id(const IrcServer *self)
+{
+    return self->id;
 }
 
 SOEXPORT const char *IrcServer_name(const IrcServer *self)
