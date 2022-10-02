@@ -17,6 +17,8 @@
 #define RECONNTICKS 300
 #define QUICKRECONNTICKS 5
 #define LOGINTICKS 20
+#define IDLETICKS 180
+#define PINGTICKS 3
 
 struct IrcServer {
     const char *remotehost;
@@ -37,6 +39,7 @@ struct IrcServer {
     int connst;
     int loginticks;
     int reconnticks;
+    int idleticks;
     uint16_t recvbufsz;
     uint8_t recvbuf[8192];
 };
@@ -47,6 +50,7 @@ static void connDataReceived(void *receiver, void *sender, void *args);
 static void connDataSent(void *receiver, void *sender, void *args);
 static void connWaitReconn(void *receiver, void *sender, void *args);
 static void connWaitLogin(void *receiver, void *sender, void *args);
+static void checkIdle(void *receiver, void *sender, void *args);
 
 static void sendRaw(IrcServer *self, const char *command);
 static void sendRawCmd(IrcServer *self, const char *cmd, const char *args);
@@ -124,6 +128,8 @@ static void connDataReceived(void *receiver, void *sender, void *args)
     DataReceivedEventArgs *dra = args;
 
     if (conn != self->conn) return;
+
+    self->idleticks = IDLETICKS;
 
     memcpy(self->recvbuf + self->recvbufsz, dra->buf, dra->size);
     self->recvbufsz += dra->size;
@@ -220,6 +226,26 @@ static void connWaitLogin(void *receiver, void *sender, void *args)
     }
 }
 
+static void checkIdle(void *receiver, void *sender, void *args)
+{
+    IrcServer *self = receiver;
+    (void)sender;
+    (void)args;
+
+    if (--self->idleticks == 0)
+    {
+	logmsg(L_INFO, "IrcServer: pinging idle connection ...");
+	sendRawCmd(self, "PING", self->nick);
+    }
+    else if (self->idleticks <= -PINGTICKS)
+    {
+	Event_unregister(Service_tick(), self, checkIdle, 0);
+	logmsg(L_WARNING,
+		"IrcServer: timeout waiting for pong, disconnecting ...");
+	Connection_close(self->conn);
+    }
+}
+
 static void sendRaw(IrcServer *self, const char *command)
 {
     char *cmd = copystr(command);
@@ -276,6 +302,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	logmsg(L_INFO, "IrcServer: connected and logged in");
 	self->connst = 1;
 	Event_unregister(Service_tick(), self, connWaitLogin, 0);
+	Event_register(Service_tick(), self, checkIdle, 0);
 	if (List_size(self->channels))
 	{
 	    ListIterator *i = List_iterator(self->channels);
