@@ -1,4 +1,3 @@
-#include <ircbot/config.h>
 #include <ircbot/event.h>
 #include <ircbot/hashtable.h>
 #include <ircbot/ircbot.h>
@@ -89,19 +88,13 @@ int main(void)
     setFileLogger(stderr);
     srand(time(0));
 
-    Config config;
-    memset(&config, 0, sizeof config);
-    config.uid = -1;
-
     IrcServer *server = IrcServer_create(IRCNET, SERVER, PORT,
 	    NICK, USER, REALNAME);
     IrcServer_join(server, CHANNEL);
     Event_register(IrcServer_msgReceived(server), 0, msgReceived, 0);
     Event_register(IrcServer_joined(server), 0, chanJoined, 0);
+    IrcBot_addServer(server);
 
-    int rc = IrcBot_run(&config, server);
-
-    IrcServer_destroy(server);
-    return rc;
+    return IrcBot_run();
 }
 

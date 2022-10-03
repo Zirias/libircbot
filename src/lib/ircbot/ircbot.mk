@@ -15,8 +15,7 @@ ircbot_MODULES:=		client \
 				threadpool \
 				util
 
-ircbot_HEADERS_INSTALL:= 	config \
-				decl \
+ircbot_HEADERS_INSTALL:= 	decl \
 				event \
 				hashtable \
 				ircbot \

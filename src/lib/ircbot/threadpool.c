@@ -1,9 +1,9 @@
 #define _DEFAULT_SOURCE
 
-#include <ircbot/config.h>
 #include <ircbot/event.h>
 #include <ircbot/log.h>
 
+#include "ircbot.h"
 #include "service.h"
 #include "threadpool.h"
 #include "util.h"
@@ -294,7 +294,7 @@ static void panicHandler(const char *msg)
     longjmp(panicjmp, -1);
 }
 
-SOLOCAL int ThreadPool_init(const Config *cfg)
+SOLOCAL int ThreadPool_init(const ThreadOpts *opts)
 {
     sigset_t blockmask;
     sigset_t mask;
@@ -309,9 +309,9 @@ SOLOCAL int ThreadPool_init(const Config *cfg)
 	return rc;
     }
 
-    if (cfg->nthreads)
+    if (opts->nThreads)
     {
-	nthreads = cfg->nthreads;
+	nthreads = opts->nThreads;
     }
     else
     {
@@ -319,27 +319,27 @@ SOLOCAL int ThreadPool_init(const Config *cfg)
 	long ncpu = sysconf(_SC_NPROCESSORS_CONF);
 	if (ncpu >= 1)
 	{
-	    if (ncpu <= (cfg->maxthreads / cfg->threads_per_cpu))
+	    if (ncpu <= (opts->maxThreads / opts->nPerCpu))
 	    {
-		nthreads = cfg->threads_per_cpu * ncpu;
+		nthreads = opts->nPerCpu * ncpu;
 	    }
-	    else nthreads = cfg->maxthreads;
+	    else nthreads = opts->maxThreads;
 	}
-	else nthreads = cfg->def_nthreads;
+	else nthreads = opts->defNThreads;
 #else
-	nthreads = cfg->def_nthreads;
+	nthreads = opts->defNThreads;
 #endif
     }
-    if (cfg->queuesize)
+    if (opts->queueLen)
     {
-	queuesize = cfg->queuesize;
+	queuesize = opts->queueLen;
     }
-    else if (nthreads <= (cfg->maxqueuesize / cfg->queuesize_per_thread))
+    else if (nthreads <= (opts->maxQueueLen / opts->qLenPerThread))
     {
-	queuesize = cfg->queuesize_per_thread * nthreads;
-	if (queuesize < cfg->minqueuesize) queuesize = cfg->minqueuesize;
+	queuesize = opts->qLenPerThread * nthreads;
+	if (queuesize < opts->minQueueLen) queuesize = opts->minQueueLen;
     }
-    else queuesize = cfg->maxqueuesize;
+    else queuesize = opts->maxQueueLen;
 
     logfmt(L_DEBUG, "threadpool: starting with %d threads and a queue for "
 	    "%d jobs", nthreads, queuesize);

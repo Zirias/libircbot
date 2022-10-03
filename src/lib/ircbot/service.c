@@ -1,9 +1,9 @@
 #define _DEFAULT_SOURCE
 
-#include <ircbot/config.h>
 #include <ircbot/event.h>
 #include <ircbot/log.h>
 
+#include "ircbot.h"
 #include "service.h"
 
 #include <grp.h>
@@ -16,7 +16,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-static const Config *cfg;
+static const DaemonOpts *opts;
 static Event *readyRead;
 static Event *readyWrite;
 static Event *startup;
@@ -73,10 +73,10 @@ static void tryReduceNfds(int id)
     }
 }
 
-SOLOCAL int Service_init(const Config *config)
+SOLOCAL int Service_init(const DaemonOpts *options)
 {
-    if (cfg) return -1;
-    cfg = config;
+    if (opts) return -1;
+    opts = options;
     readyRead = Event_create(0);
     readyWrite = Event_create(0);
     startup = Event_create(0);
@@ -196,25 +196,25 @@ SOLOCAL int Service_setTickInterval(unsigned msec)
 
 SOLOCAL int Service_run(void)
 {
-    if (!cfg) return -1;
+    if (!opts) return -1;
 
     int rc = EXIT_FAILURE;
-    if (cfg->uid != -1 && geteuid() == 0)
+    if (opts->uid != -1 && geteuid() == 0)
     {
-	if (cfg->daemonize)
+	if (opts->daemonize)
 	{
-	    chown(cfg->pidfile, cfg->uid, cfg->gid);
+	    chown(opts->pidfile, opts->uid, opts->gid);
 	}
-	if (cfg->gid != -1)
+	if (opts->gid != -1)
 	{
-	    gid_t gid = cfg->gid;
+	    gid_t gid = opts->gid;
 	    if (setgroups(1, &gid) < 0 || setgid(gid) < 0)
 	    {
 		logmsg(L_ERROR, "cannot set specified group");
 		return rc;
 	    }
 	}
-	if (setuid(cfg->uid) < 0)
+	if (setuid(opts->uid) < 0)
 	{
 	    logmsg(L_ERROR, "cannot set specified user");
 	    return rc;
@@ -382,14 +382,14 @@ SOLOCAL void Service_panic(const char *msg)
 
 SOLOCAL void Service_done(void)
 {
-    if (!cfg) return;
+    if (!opts) return;
     Event_destroy(eventsDone);
     Event_destroy(tick);
     Event_destroy(shutdown);
     Event_destroy(startup);
     Event_destroy(readyWrite);
     Event_destroy(readyRead);
-    cfg = 0;
+    opts = 0;
     shutdown = 0;
     startup = 0;
     readyWrite = 0;

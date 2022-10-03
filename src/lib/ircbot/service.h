@@ -4,9 +4,9 @@
 #include <ircbot/decl.h>
 #include <ircbot/service.h>
 
-typedef struct Config Config;
+typedef struct DaemonOpts DaemonOpts;
 
-int Service_init(const Config *config) ATTR_NONNULL((1));
+int Service_init(const DaemonOpts *options) ATTR_NONNULL((1));
 Event *Service_readyRead(void) ATTR_RETNONNULL ATTR_PURE;
 Event *Service_readyWrite(void) ATTR_RETNONNULL ATTR_PURE;
 void Service_registerRead(int id);

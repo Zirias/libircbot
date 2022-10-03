@@ -3,9 +3,9 @@
 
 #include <ircbot/decl.h>
 
-typedef struct Config Config;
 typedef struct Event Event;
 typedef struct ThreadJob ThreadJob;
+typedef struct ThreadOpts ThreadOpts;
 
 typedef void (*ThreadProc)(void *arg);
 
@@ -16,7 +16,7 @@ int ThreadJob_hasCompleted(const ThreadJob *self) CMETHOD ATTR_PURE;
 void ThreadJob_destroy(ThreadJob *self);
 int ThreadJob_canceled(void);
 
-int ThreadPool_init(const Config *cfg) ATTR_NONNULL((1));
+int ThreadPool_init(const ThreadOpts *opts) ATTR_NONNULL((1));
 int ThreadPool_active(void);
 int ThreadPool_enqueue(ThreadJob *job) ATTR_NONNULL((1));
 void ThreadPool_cancel(ThreadJob *job) ATTR_NONNULL((1));
