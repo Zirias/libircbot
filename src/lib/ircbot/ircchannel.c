@@ -77,7 +77,11 @@ SOLOCAL void IrcChannel_handleMessage(IrcChannel *self, const IrcMessage *msg)
 	char *nick = strsep(&i, " ");
 	while (nick)
 	{
-	    HashTable_set(self->nicks, nick, self->name, 0);
+	    if (*nick && ((*nick != '@' && *nick != '%' && *nick != '@')
+			|| *++nick))
+	    {
+		HashTable_set(self->nicks, nick, self->name, 0);
+	    }
 	    nick = strsep(&i, " ");
 	}
 	free(nicklist);
