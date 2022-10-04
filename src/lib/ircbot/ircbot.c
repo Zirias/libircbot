@@ -102,7 +102,7 @@ static IrcBotEvent *createBotEvent(IrcBotEventType type, IrcServer *server,
     if (from)
     {
 	size_t bangpos = strcspn(from, "!");
-	e->from = xmalloc(bangpos);
+	e->from = xmalloc(bangpos+1);
 	strncpy(e->from, from, bangpos);
 	e->from[bangpos] = 0;
     }
@@ -118,6 +118,7 @@ static void destroyBotEvent(IrcBotEvent *e)
     if (!e) return;
     List_destroy(e->response.messages);
     free(e->arg);
+    free(e->from);
     free(e->command);
     free(e->origin);
     free(e);
@@ -198,7 +199,6 @@ static void handlerJobFinished(void *receiver, void *sender, void *args)
 
     destroyBotEvent(tparg->e);
     free(tparg);
-    ThreadJob_destroy(job);
 }
 
 static void startup(void *receiver, void *sender, void *args)
