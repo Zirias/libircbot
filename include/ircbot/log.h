@@ -20,6 +20,8 @@ typedef void (*logwriter)(LogLevel level, const char *message, void *data)
     ATTR_NONNULL((2));
 
 DECLEXPORT void setFileLogger(FILE *file) ATTR_NONNULL((1));
+DECLEXPORT void setSyslogLogger(const char *ident, int facility,
+	int withStderr) ATTR_NONNULL((1));
 DECLEXPORT void setCustomLogger(logwriter writer, void *data) ATTR_NONNULL((1));
 DECLEXPORT void setMaxLogLevel(LogLevel level);
 

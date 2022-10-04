@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <time.h>
 
 #define IRCNET "libera"
@@ -90,10 +91,15 @@ static void bier(IrcBotEvent *event)
     }
 }
 
+static void started(void)
+{
+    setSyslogLogger("libircbottest", LOG_DAEMON, 0);
+    srand(time(0));
+}
+
 int main(void)
 {
-    setFileLogger(stderr);
-    srand(time(0));
+    setSyslogLogger("libircbottest", LOG_DAEMON, 1);
 
     IrcServer *server = IrcServer_create(IRCNET, SERVER, PORT,
 	    NICK, USER, REALNAME);
@@ -103,6 +109,8 @@ int main(void)
     IrcBot_addHandler(IBET_JOINED, 0, 0, 0, joined);
     IrcBot_addHandler(IBET_BOTCOMMAND, 0, ORIGIN_CHANNEL, "say", say);
     IrcBot_addHandler(IBET_BOTCOMMAND, 0, ORIGIN_CHANNEL, "bier", bier);
+
+    IrcBot_daemonize(-1, -1, "/tmp/libircbottest.pid", started);
 
     return IrcBot_run();
 }

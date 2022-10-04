@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <syslog.h>
 
 static logwriter currentwriter = 0;
 static void *writerdata;
@@ -23,6 +24,15 @@ static const char *levels[] =
     "[DEBUG]"
 };
 
+static int syslogLevels[] =
+{
+    LOG_CRIT,
+    LOG_ERR,
+    LOG_WARNING,
+    LOG_INFO,
+    LOG_DEBUG
+};
+
 typedef struct LogJobArgs
 {
     LogLevel level;
@@ -33,6 +43,8 @@ typedef struct LogJobArgs
 
 static void logmsgJobProc(void *arg);
 static void writeFile(LogLevel level, const char *message, void *data)
+    ATTR_NONNULL((2));
+static void writeSyslog(LogLevel level, const char *message, void *data)
     ATTR_NONNULL((2));
 
 static void logmsgJobProc(void *arg)
@@ -47,6 +59,12 @@ static void writeFile(LogLevel level, const char *message, void *data)
     FILE *target = data;
     fprintf(target, "%s  %s\n", levels[level], message);
     fflush(target);
+}
+
+static void writeSyslog(LogLevel level, const char *message, void *data)
+{
+    (void)data;
+    syslog(syslogLevels[level], "%s", message);
 }
 
 SOEXPORT void logmsg(LogLevel level, const char *message)
@@ -98,6 +116,15 @@ SOEXPORT void setFileLogger(FILE *file)
 {
     currentwriter = writeFile;
     writerdata = file;
+}
+
+SOEXPORT void setSyslogLogger(const char *ident, int facility, int withStderr)
+{
+    int logopts = LOG_PID;
+    if (withStderr) logopts |= LOG_PERROR;
+    openlog(ident, logopts, facility);
+    currentwriter = writeSyslog;
+    writerdata = 0;
 }
 
 SOEXPORT void setCustomLogger(logwriter writer, void *data)

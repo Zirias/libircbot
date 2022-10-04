@@ -74,7 +74,7 @@ static FILE *openpidfile(const char *pidfile)
 	    }
 	    else
 	    {
-		logmsg(L_ERROR, "daemon already running");
+		logfmt(L_ERROR, "daemon already running with pid %d", pid);
 	    }
 	    return 0;
 	}

@@ -225,6 +225,7 @@ static void startup(void *receiver, void *sender, void *args)
     }
     ListIterator_destroy(i);
 
+    logsetasync(1);
     if (daemonOpts.daemonize && ea->rc != EXIT_FAILURE)
     {
 	if (daemonOpts.started) daemonOpts.started();
