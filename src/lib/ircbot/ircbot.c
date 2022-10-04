@@ -2,6 +2,7 @@
 #include <ircbot/ircchannel.h>
 #include <ircbot/ircserver.h>
 #include <ircbot/list.h>
+#include <ircbot/log.h>
 
 #include "daemon.h"
 #include "ircbot.h"
@@ -44,6 +45,12 @@ typedef struct IrcBotResponseMessage
     int action;
 } IrcBotResponseMessage;
 
+typedef struct HandlerThreadProcArg
+{
+    IrcBotEventHandler *hdl;
+    IrcBotEvent *e;
+} HandlerThreadProcArg;
+
 static ThreadOpts threadOpts = {
     .nThreads = 0,
     .maxThreads = 128,
@@ -72,9 +79,11 @@ static IrcBotEvent *createBotEvent(IrcBotEventType type, IrcServer *server,
 static void destroyBotEvent(IrcBotEvent *e);
 static IrcBotEventHandler *findHandler(IrcBotEventType type,
 	const char *serverId, const char *origin, const char *filter);
+static void handlerThreadProc(void *arg);
 static void executeHandler(IrcBotEventHandler *hdl, IrcBotEvent *e);
 static void destroyMessage(void *message);
 
+static void handlerJobFinished(void *receiver, void *sender, void *args);
 static void startup(void *receiver, void *sender, void *args);
 static void shutdownok(void *receiver, void *sender, void *args);
 static void shutdown(void *receiver, void *sender, void *args);
@@ -141,18 +150,21 @@ static IrcBotEventHandler *findHandler(IrcBotEventType type,
     return hdl;
 }
 
+static void handlerThreadProc(void *arg)
+{
+    HandlerThreadProcArg *tparg = arg;
+    tparg->hdl->handler(tparg->e);
+}
+
 static void executeHandler(IrcBotEventHandler *hdl, IrcBotEvent *e)
 {
-    hdl->handler(e);
-    ListIterator *i = List_iterator(e->response.messages);
-    while (ListIterator_moveNext(i))
-    {
-	IrcBotResponseMessage *message = ListIterator_current(i);
-	IrcServer_sendMsg(e->server, message->to,
-		message->msg, message->action);
-    }
-    ListIterator_destroy(i);
-    destroyBotEvent(e);
+    HandlerThreadProcArg *tparg = xmalloc(sizeof *tparg);
+    tparg->hdl = hdl;
+    tparg->e = e;
+    ThreadJob *job = ThreadJob_create(handlerThreadProc, tparg, 30);
+    Event_register(ThreadJob_finished(job), 0, handlerJobFinished, 0);
+    ThreadPool_enqueue(job);
+
 }
 
 static void destroyMessage(void *message)
@@ -162,6 +174,31 @@ static void destroyMessage(void *message)
     free(msg->msg);
     free(msg->to);
     free(msg);
+}
+
+static void handlerJobFinished(void *receiver, void *sender, void *args)
+{
+    (void)receiver;
+
+    ThreadJob *job = sender;
+    HandlerThreadProcArg *tparg = args;
+
+    if (ThreadJob_hasCompleted(job))
+    {
+	ListIterator *i = List_iterator(tparg->e->response.messages);
+	while (ListIterator_moveNext(i))
+	{
+	    IrcBotResponseMessage *message = ListIterator_current(i);
+	    IrcServer_sendMsg(tparg->e->server, message->to,
+		    message->msg, message->action);
+	}
+	ListIterator_destroy(i);
+    }
+    else logmsg(L_WARNING, "IrcBot: a handler timed out.");
+
+    destroyBotEvent(tparg->e);
+    free(tparg);
+    ThreadJob_destroy(job);
 }
 
 static void startup(void *receiver, void *sender, void *args)
