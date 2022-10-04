@@ -349,8 +349,8 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	Event_raise(self->joined, 0, channel);
     }
     else if (!strcmp(cmd, "JOIN") || !strcmp(cmd, "PART")
-	    || !strcmp(cmd, "QUIT") || !strcmp(cmd, "353")
-	    || !strcmp(cmd, "366"))
+	    || !strcmp(cmd, "QUIT") || !strcmp(cmd, "NICK")
+	    || !strcmp(cmd, "353") || !strcmp(cmd, "366"))
     {
 	ListIterator *i = List_iterator(self->activeChannels);
 	while (ListIterator_moveNext(i))
