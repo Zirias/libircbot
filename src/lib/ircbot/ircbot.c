@@ -89,7 +89,9 @@ static void shutdownok(void *receiver, void *sender, void *args);
 static void shutdown(void *receiver, void *sender, void *args);
 static void msgReceived(void *receiver, void *sender, void *args);
 static void userJoined(void *receiver, void *sender, void *args);
+static void userParted(void *receiver, void *sender, void *args);
 static void chanJoined(void *receiver, void *sender, void *args);
+static void connected(void *receiver, void *sender, void *args);
 
 static IrcBotEvent *createBotEvent(IrcBotEventType type, IrcServer *server,
 	const char *origin, const char *command, const char *from,
@@ -217,6 +219,7 @@ static void startup(void *receiver, void *sender, void *args)
 	    ea->rc = EXIT_FAILURE;
 	    break;
 	}
+	Event_register(IrcServer_connected(server), 0, connected, 0);
 	Event_register(IrcServer_joined(server), 0, chanJoined, 0);
 	Event_register(IrcServer_msgReceived(server), 0, msgReceived, 0);
     }
@@ -337,6 +340,22 @@ static void userJoined(void *receiver, void *sender, void *args)
     }
 }
 
+static void userParted(void *receiver, void *sender, void *args)
+{
+    IrcServer *server = receiver;
+    IrcChannel *channel = sender;
+    const char *nick = args;
+
+    IrcBotEventHandler *hdl = findHandler(IBET_PARTED, IrcServer_id(server),
+	    IrcChannel_name(channel), nick);
+    if (hdl)
+    {
+	IrcBotEvent *e = createBotEvent(IBET_PARTED, server,
+		IrcChannel_name(channel), 0, 0, nick);
+	executeHandler(hdl, e);
+    }
+}
+
 static void chanJoined(void *receiver, void *sender, void *args)
 {
     (void)receiver;
@@ -345,6 +364,7 @@ static void chanJoined(void *receiver, void *sender, void *args)
     IrcChannel *channel = args;
 
     Event_register(IrcChannel_joined(channel), server, userJoined, 0);
+    Event_register(IrcChannel_parted(channel), server, userParted, 0);
 
     IrcBotEventHandler *hdl = findHandler(IBET_CHANJOINED,
 	    IrcServer_id(server), IrcChannel_name(channel), 0);
@@ -352,6 +372,21 @@ static void chanJoined(void *receiver, void *sender, void *args)
     {
 	IrcBotEvent *e = createBotEvent(IBET_CHANJOINED, server,
 		IrcChannel_name(channel), 0, 0, 0);
+	executeHandler(hdl, e);
+    }
+}
+
+static void connected(void *receiver, void *sender, void *args)
+{
+    (void)receiver;
+    (void)args;
+
+    IrcServer *server = sender;
+    IrcBotEventHandler *hdl = findHandler(IBET_CONNECTED,
+	    IrcServer_id(server), 0, 0);
+    if (hdl)
+    {
+	IrcBotEvent *e = createBotEvent(IBET_CONNECTED, server, 0, 0, 0, 0);
 	executeHandler(hdl, e);
     }
 }
