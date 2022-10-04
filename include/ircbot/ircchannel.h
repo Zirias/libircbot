@@ -6,7 +6,6 @@
 C_CLASS_DECL(Event);
 C_CLASS_DECL(HashTable);
 C_CLASS_DECL(IrcChannel);
-C_CLASS_DECL(IrcMessage);
 
 DECLEXPORT const char *IrcChannel_name(const IrcChannel *self)
     CMETHOD ATTR_RETNONNULL;

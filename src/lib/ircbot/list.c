@@ -137,3 +137,22 @@ SOEXPORT void ListIterator_destroy(ListIterator *self)
     free(self);
 }
 
+SOEXPORT List *List_fromString(const char *str, const char *delim)
+{
+    List *list = 0;
+    char *buf = copystr(str);
+    char *bufp = buf;
+    char *word = 0;
+
+    while ((word = strsep(&bufp, delim)))
+    {
+	if (*word)
+	{
+	    if (!list) list = List_create();
+	    List_append(list, copystr(word), free);
+	}
+    }
+
+    free(buf);
+    return list;
+}

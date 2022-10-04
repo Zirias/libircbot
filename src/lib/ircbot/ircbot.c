@@ -1,12 +1,48 @@
 #include <ircbot/event.h>
+#include <ircbot/ircchannel.h>
 #include <ircbot/ircserver.h>
 #include <ircbot/list.h>
 
+#include "daemon.h"
 #include "ircbot.h"
 #include "service.h"
+#include "threadpool.h"
 #include "util.h"
 
 #include <stdlib.h>
+#include <string.h>
+
+struct IrcBotResponse
+{
+    List *messages;
+};
+
+struct IrcBotEvent
+{
+    IrcServer *server;
+    char *origin;
+    char *command;
+    char *from;
+    char *arg;
+    IrcBotResponse response;
+    IrcBotEventType type;
+};
+
+typedef struct IrcBotEventHandler
+{
+    IrcBotHandler handler;
+    const char *serverId;
+    const char *origin;
+    const char *filter;
+    IrcBotEventType type;
+} IrcBotEventHandler;
+
+typedef struct IrcBotResponseMessage
+{
+    char *to;
+    char *msg;
+    int action;
+} IrcBotResponseMessage;
 
 static ThreadOpts threadOpts = {
     .nThreads = 0,
@@ -28,15 +64,132 @@ static DaemonOpts daemonOpts = {
 };
 
 static List *servers = 0;
+static List *handlers = 0;
+
+static IrcBotEvent *createBotEvent(IrcBotEventType type, IrcServer *server,
+	const char *origin, const char *command, const char *from,
+	const char *arg);
+static void destroyBotEvent(IrcBotEvent *e);
+static IrcBotEventHandler *findHandler(IrcBotEventType type,
+	const char *serverId, const char *origin, const char *filter);
+static void executeHandler(IrcBotEventHandler *hdl, IrcBotEvent *e);
+static void destroyMessage(void *message);
+
+static void startup(void *receiver, void *sender, void *args);
+static void shutdownok(void *receiver, void *sender, void *args);
+static void shutdown(void *receiver, void *sender, void *args);
+static void msgReceived(void *receiver, void *sender, void *args);
+static void userJoined(void *receiver, void *sender, void *args);
+static void chanJoined(void *receiver, void *sender, void *args);
+
+static IrcBotEvent *createBotEvent(IrcBotEventType type, IrcServer *server,
+	const char *origin, const char *command, const char *from,
+	const char *arg)
+{
+    IrcBotEvent *e = xmalloc(sizeof *e);
+    e->server = server;
+    e->origin = copystr(origin);
+    e->command = copystr(command);
+    if (from)
+    {
+	size_t bangpos = strcspn(from, "!");
+	e->from = xmalloc(bangpos);
+	strncpy(e->from, from, bangpos);
+	e->from[bangpos] = 0;
+    }
+    else e->from = 0;
+    e->arg = copystr(arg);
+    e->response.messages = List_create();
+    e->type = type;
+    return e;
+}
+
+static void destroyBotEvent(IrcBotEvent *e)
+{
+    if (!e) return;
+    List_destroy(e->response.messages);
+    free(e->arg);
+    free(e->command);
+    free(e->origin);
+    free(e);
+}
+
+static IrcBotEventHandler *findHandler(IrcBotEventType type,
+	const char *serverId, const char *origin, const char *filter)
+{
+    if (!handlers) return 0;
+
+    IrcBotEventHandler *hdl = 0;
+    ListIterator *i = List_iterator(handlers);
+    while (ListIterator_moveNext(i))
+    {
+	IrcBotEventHandler *h = ListIterator_current(i);
+
+	if (h->type != type)
+	    continue;
+	if (h->serverId && (!serverId || strcmp(serverId, h->serverId)))
+	    continue;
+	if (h->origin && (!origin || strcmp(origin, h->origin)))
+	    continue;
+	if (h->filter && (!filter || strcmp(filter, h->filter)))
+	    continue;
+
+	hdl = h;
+	break;
+    }
+    ListIterator_destroy(i);
+    return hdl;
+}
+
+static void executeHandler(IrcBotEventHandler *hdl, IrcBotEvent *e)
+{
+    hdl->handler(e);
+    ListIterator *i = List_iterator(e->response.messages);
+    while (ListIterator_moveNext(i))
+    {
+	IrcBotResponseMessage *message = ListIterator_current(i);
+	IrcServer_sendMsg(e->server, message->to,
+		message->msg, message->action);
+    }
+    ListIterator_destroy(i);
+    destroyBotEvent(e);
+}
+
+static void destroyMessage(void *message)
+{
+    if (!message) return;
+    IrcBotResponseMessage *msg = message;
+    free(msg->msg);
+    free(msg->to);
+    free(msg);
+}
 
 static void startup(void *receiver, void *sender, void *args)
 {
+    (void)receiver;
     (void)sender;
 
-    IrcServer *server = receiver;
     StartupEventArgs *ea = args;
 
-    if (IrcServer_connect(server) < 0) ea->rc = EXIT_FAILURE;
+    ListIterator *i = List_iterator(servers);
+    while (ListIterator_moveNext(i))
+    {
+	IrcServer *server = ListIterator_current(i);
+	if (IrcServer_connect(server) < 0)
+	{
+	    ea->rc = EXIT_FAILURE;
+	    break;
+	}
+	Event_register(IrcServer_joined(server), 0, chanJoined, 0);
+	Event_register(IrcServer_msgReceived(server), 0, msgReceived, 0);
+    }
+    ListIterator_destroy(i);
+
+    if (daemonOpts.daemonize && ea->rc != EXIT_FAILURE)
+    {
+	if (daemonOpts.started) daemonOpts.started();
+	daemon_launched();
+    }
 }
 
 static void shutdownok(void *receiver, void *sender, void *args)
@@ -51,13 +204,119 @@ static void shutdownok(void *receiver, void *sender, void *args)
 
 static void shutdown(void *receiver, void *sender, void *args)
 {
+    (void)receiver;
     (void)sender;
     (void)args;
 
+    ListIterator *i = List_iterator(servers);
+    while (ListIterator_moveNext(i))
+    {
+	IrcServer *server = ListIterator_current(i);
+	Event_register(IrcServer_disconnected(server), 0, shutdownok, 0);
+	Service_shutdownLock();
+	IrcServer_disconnect(server);
+    }
+    ListIterator_destroy(i);
+}
+
+static void msgReceived(void *receiver, void *sender, void *args)
+{
+    (void)receiver;
+
+    IrcServer *server = sender;
+    MsgReceivedEventArgs *ea = args;
+    IrcChannel *channel = IrcServer_channel(server, ea->to);
+
+    if (ea->message[0] == '!' || !channel)
+    {
+	const char *message = ea->message;
+	if (message[0] == '!') ++message;
+	size_t cmdlen = strcspn(message, " \t\r\n");
+	if (cmdlen && cmdlen < 64)
+	{
+	    char cmd[64];
+	    strncpy(cmd, message, cmdlen);
+	    cmd[cmdlen] = 0;
+	    IrcBotEventHandler *hdl = findHandler(IBET_BOTCOMMAND,
+		    IrcServer_id(server), ea->to, cmd);
+	    if (!hdl && !channel)
+	    {
+		hdl = findHandler(IBET_BOTCOMMAND, IrcServer_id(server),
+			ORIGIN_PRIVATE, cmd);
+	    }
+	    else if (!hdl && channel)
+	    {
+		hdl = findHandler(IBET_BOTCOMMAND, IrcServer_id(server),
+			ORIGIN_CHANNEL, cmd);
+	    }
+	    if (hdl)
+	    {
+		const char *arg = 0;
+		if (message[cmdlen] && message[cmdlen+1])
+		{
+		    arg = message+cmdlen+1;
+		}
+		IrcBotEvent *e = createBotEvent(IBET_BOTCOMMAND, server,
+			ea->to, cmd, ea->from, arg);
+		executeHandler(hdl, e);
+		return;
+	    }
+	}
+    }
+
+    IrcBotEventHandler *hdl = findHandler(IBET_PRIVMSG, IrcServer_id(server),
+	    ea->to, 0);
+    if (!hdl && !channel)
+    {
+	hdl = findHandler(IBET_PRIVMSG, IrcServer_id(server),
+		ORIGIN_PRIVATE, 0);
+    }
+    else if (!hdl && channel)
+    {
+	hdl = findHandler(IBET_PRIVMSG, IrcServer_id(server),
+		ORIGIN_CHANNEL, 0);
+    }
+    if (hdl)
+    {
+	IrcBotEvent *e = createBotEvent(IBET_PRIVMSG, server,
+		ea->to, 0, ea->from, ea->message);
+	executeHandler(hdl, e);
+    }
+}
+
+static void userJoined(void *receiver, void *sender, void *args)
+{
     IrcServer *server = receiver;
-    Event_register(IrcServer_disconnected(server), 0, shutdownok, 0);
-    Service_shutdownLock();
-    IrcServer_disconnect(server);
+    IrcChannel *channel = sender;
+    const char *nick = args;
+
+    IrcBotEventHandler *hdl = findHandler(IBET_JOINED, IrcServer_id(server),
+	    IrcChannel_name(channel), nick);
+    if (hdl)
+    {
+	IrcBotEvent *e = createBotEvent(IBET_JOINED, server,
+		IrcChannel_name(channel), 0, 0, nick);
+	executeHandler(hdl, e);
+    }
+}
+
+static void chanJoined(void *receiver, void *sender, void *args)
+{
+    (void)receiver;
+
+    IrcServer *server = sender;
+    IrcChannel *channel = args;
+
+    Event_register(IrcChannel_joined(channel), server, userJoined, 0);
+
+    IrcBotEventHandler *hdl = findHandler(IBET_CHANJOINED,
+	    IrcServer_id(server), IrcChannel_name(channel), 0);
+    if (hdl)
+    {
+	IrcBotEvent *e = createBotEvent(IBET_CHANJOINED, server,
+		IrcChannel_name(channel), 0, 0, 0);
+	executeHandler(hdl, e);
+    }
 }
 
 SOEXPORT ThreadOpts *IrcBot_threadOpts(void)
@@ -109,14 +368,27 @@ SOEXPORT void IrcBot_daemonize(long uid, long gid,
 	const char *pidfile, void (*started)(void))
 {
     daemonOpts.started = started;
-    free(daemonOpts.pidfile);
-    daemonOpts.pidfile = copystr(pidfile);
+    daemonOpts.pidfile = pidfile;
     daemonOpts.uid = uid;
     daemonOpts.gid = gid;
     daemonOpts.daemonize = 1;
 }
 
-static void destroyServer(void *server)
+SOEXPORT void IrcBot_addHandler(IrcBotEventType eventType,
+	const char *serverId, const char *origin, const char *filter,
+	IrcBotHandler handler)
+{
+    IrcBotEventHandler *hdl = xmalloc(sizeof *hdl);
+    hdl->handler = handler;
+    hdl->serverId = serverId;
+    hdl->origin = origin;
+    hdl->filter = filter;
+    hdl->type = eventType;
+    if (!handlers) handlers = List_create();
+    List_append(handlers, hdl, free);
+}
+
+static inline void destroyServer(void *server)
 {
     IrcServer_destroy(server);
 }
@@ -127,27 +399,86 @@ SOEXPORT void IrcBot_addServer(IrcServer *server)
     List_append(servers, server, destroyServer);
 }
 
-SOEXPORT int IrcBot_run(void)
+static int daemonrun(void *data)
 {
-    if (!servers || !List_size(servers)) return EXIT_FAILURE;
+    (void)data;
 
-    Service_init(&daemonOpts);
-    Service_setTickInterval(1000);
+    if (!servers) return EXIT_FAILURE;
 
-    ListIterator *s = List_iterator(servers);
-    while (ListIterator_moveNext(s))
+    int rc = EXIT_FAILURE;
+
+    if (Service_init(&daemonOpts) >= 0)
     {
-	IrcServer *server = ListIterator_current(s);
-	Event_register(Service_startup(), server, startup, 0);
-	Event_register(Service_shutdown(), server, shutdown, 0);
-    }
-    ListIterator_destroy(s);
+	Service_setTickInterval(1000);
+	Event_register(Service_startup(), 0, startup, 0);
+	Event_register(Service_shutdown(), 0, shutdown, 0);
 
-    int rc = Service_run();
-    Service_done();
+	if (ThreadPool_init(&threadOpts) >= 0)
+	{
+	    rc = Service_run();
+	    ThreadPool_done();
+	}
+
+	Service_done();
+    }
 
     List_destroy(servers);
     servers = 0;
+    List_destroy(handlers);
+    handlers = 0;
 
     return rc;
 }
+
+SOEXPORT int IrcBot_run(void)
+{
+    return daemonOpts.daemonize
+	? daemon_run(daemonrun, 0, daemonOpts.pidfile, 1)
+	: daemonrun(0);
+}
+
+SOEXPORT IrcBotEventType IrcBotEvent_type(const IrcBotEvent *self)
+{
+    return self->type;
+}
+
+SOEXPORT const IrcServer *IrcBotEvent_server(const IrcBotEvent *self)
+{
+    return self->server;
+}
+
+SOEXPORT const char *IrcBotEvent_origin(const IrcBotEvent *self)
+{
+    return self->origin;
+}
+
+SOEXPORT const char *IrcBotEvent_command(const IrcBotEvent *self)
+{
+    return self->command;
+}
+
+SOEXPORT const char *IrcBotEvent_from(const IrcBotEvent *self)
+{
+    return self->from;
+}
+
+SOEXPORT const char *IrcBotEvent_arg(const IrcBotEvent *self)
+{
+    return self->arg;
+}
+
+SOEXPORT IrcBotResponse *IrcBotEvent_response(IrcBotEvent *self)
+{
+    return &self->response;
+}
+
+SOEXPORT void IrcBotResponse_addMsg(IrcBotResponse *self,
+	const char *to, const char *msg, int action)
+{
+    IrcBotResponseMessage *message = xmalloc(sizeof *message);
+    message->to = copystr(to);
+    message->msg = copystr(msg);
+    message->action = action;
+    List_append(self->messages, message, destroyMessage);
+}
+

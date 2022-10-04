@@ -4,7 +4,9 @@
 #include <ircbot/decl.h>
 
 C_CLASS_DECL(Event);
+C_CLASS_DECL(IrcChannel);
 C_CLASS_DECL(IrcServer);
+C_CLASS_DECL(List);
 
 typedef struct MsgReceivedEventArgs
 {
@@ -26,6 +28,11 @@ DECLEXPORT const char *IrcServer_name(const IrcServer *self)
     CMETHOD ATTR_RETNONNULL;
 DECLEXPORT const char *IrcServer_nick(const IrcServer *self)
     CMETHOD ATTR_RETNONNULL;
+DECLEXPORT const List *IrcServer_channels(const IrcServer *self)
+    CMETHOD;
+DECLEXPORT IrcChannel *IrcServer_channel(
+	const IrcServer *self, const char *channel)
+    CMETHOD ATTR_NONNULL((2));
 DECLEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
     CMETHOD ATTR_NONNULL((2));
 DECLEXPORT void IrcServer_join(IrcServer *self, const char *channel)

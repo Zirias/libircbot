@@ -1,8 +1,8 @@
-#include <ircbot/event.h>
 #include <ircbot/hashtable.h>
 #include <ircbot/ircbot.h>
 #include <ircbot/ircchannel.h>
 #include <ircbot/ircserver.h>
+#include <ircbot/list.h>
 #include <ircbot/log.h>
 
 #include <stdlib.h>
@@ -17,7 +17,7 @@
 #define REALNAME "wumsbot"
 #define CHANNEL "#bsd-de"
 
-static const char *bier[] = {
+static const char *beer[] = {
     "Prost!",
     "Feierabend?",
     "Beer is the answer, but I can't remember the question ...",
@@ -25,62 +25,69 @@ static const char *bier[] = {
     "Bierpreisbremse jetzt!"
 };
 
-static void msgReceived(void *receiver, void *sender, void *args)
+static void joined(IrcBotEvent *event)
 {
-    (void)receiver;
-
-    IrcServer *server = sender;
-    MsgReceivedEventArgs *ea = args;
-
-    if (strcmp(ea->to, CHANNEL)) return;
-
-    if (strlen(ea->message) > 5 && !strncmp(ea->message, "!say ", 5))
-    {
-	if (ea->from && !strcmp(ea->message+5, "my name"))
-	{
-	    IrcServer_sendMsg(server, ea->to, ea->from, 0);
-	}
-	else
-	{
-	    IrcServer_sendMsg(server, ea->to, ea->message+5, 0);
-	}
-    }
-    else if (!strcmp(ea->message, "!bier"))
-    {
-	IrcServer_sendMsg(server, ea->to,
-		bier[rand() % (sizeof bier / sizeof *bier)], 0);
-    }
-    else if (strlen(ea->message) > 6 && !strncmp(ea->message, "!bier ", 6))
-    {
-	const char *beerfor = ea->message + 6;
-	if (!beerfor[strcspn(beerfor, " ")])
-	{
-	    char buf[256];
-	    snprintf(buf, 256, "wird %s mit Bier abfüllen!", beerfor);
-	    IrcServer_sendMsg(server, ea->to, buf, 1);
-	}
-    }
-}
-
-static void userJoined(void *receiver, void *sender, void *args)
-{
-    IrcServer *server = receiver;
-    IrcChannel *channel = sender;
-    const char *nick = args;
-
+    IrcBotResponse *response = IrcBotEvent_response(event);
     char buf[256];
-    snprintf(buf, 256, "Hallo %s!", nick);
-    IrcServer_sendMsg(server, IrcChannel_name(channel), buf, 0);
+    snprintf(buf, 256, "Hallo %s!", IrcBotEvent_arg(event));
+    IrcBotResponse_addMsg(response, IrcBotEvent_origin(event), buf, 0);
 }
 
-static void chanJoined(void *receiver, void *sender, void *args)
+static void say(IrcBotEvent *event)
 {
-    (void)receiver;
+    IrcBotResponse *response = IrcBotEvent_response(event);
+    const char *arg = IrcBotEvent_arg(event);
 
-    IrcServer *server = sender;
-    IrcChannel *channel = args;
+    if (!strcmp(arg, "my name"))
+    {
+	IrcBotResponse_addMsg(response, IrcBotEvent_origin(event),
+		IrcBotEvent_from(event), 0);
+    }
+    else
+    {
+	IrcBotResponse_addMsg(response, IrcBotEvent_origin(event), arg, 0);
+    }
+}
 
-    Event_register(IrcChannel_joined(channel), server, userJoined, 0);
+static void bier(IrcBotEvent *event)
+{
+    IrcBotResponse *response = IrcBotEvent_response(event);
+    const char *arg = IrcBotEvent_arg(event);
+    const char *origin = IrcBotEvent_origin(event);
+    const IrcChannel *channel = IrcServer_channel(
+	    IrcBotEvent_server(event), origin);
+
+    if (!channel) return;
+
+    if (arg)
+    {
+	char buf[256];
+	List *beerfor = List_fromString(arg, " \t");
+	if (beerfor)
+	{
+	    ListIterator *i = List_iterator(beerfor);
+	    while (ListIterator_moveNext(i))
+	    {
+		const char *nick = ListIterator_current(i);
+		if (HashTable_get(IrcChannel_nicks(channel), nick))
+		{
+		    snprintf(buf, 256, "wird %s mit Bier abfüllen!", nick);
+		}
+		else
+		{
+		    snprintf(buf, 256, "sieht hier keine(n) %s ...", nick);
+		}
+		IrcBotResponse_addMsg(response, origin, buf, 1);
+	    }
+	    ListIterator_destroy(i);
+	    List_destroy(beerfor);
+	}
+    }
+    else
+    {
+	IrcBotResponse_addMsg(response, origin,
+		beer[rand() % (sizeof beer / sizeof *beer)], 0);
+    }
 }
 
 int main(void)
@@ -91,9 +98,11 @@ int main(void)
     IrcServer *server = IrcServer_create(IRCNET, SERVER, PORT,
 	    NICK, USER, REALNAME);
     IrcServer_join(server, CHANNEL);
-    Event_register(IrcServer_msgReceived(server), 0, msgReceived, 0);
-    Event_register(IrcServer_joined(server), 0, chanJoined, 0);
     IrcBot_addServer(server);
+
+    IrcBot_addHandler(IBET_JOINED, 0, 0, 0, joined);
+    IrcBot_addHandler(IBET_BOTCOMMAND, 0, ORIGIN_CHANNEL, "say", say);
+    IrcBot_addHandler(IBET_BOTCOMMAND, 0, ORIGIN_CHANNEL, "bier", bier);
 
     return IrcBot_run();
 }

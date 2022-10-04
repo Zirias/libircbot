@@ -393,6 +393,30 @@ SOEXPORT const char *IrcServer_nick(const IrcServer *self)
     return self->nick;
 }
 
+SOEXPORT const List *IrcServer_channels(const IrcServer *self)
+{
+    return self->activeChannels;
+}
+
+SOEXPORT IrcChannel *IrcServer_channel(
+	const IrcServer *self, const char *channel)
+{
+    if (!self->activeChannels) return 0;
+    IrcChannel *res = 0;
+    ListIterator *i = List_iterator(self->activeChannels);
+    while (ListIterator_moveNext(i))
+    {
+	IrcChannel *curr = ListIterator_current(i);
+	if (!strcmp(IrcChannel_name(curr), channel))
+	{
+	    res = curr;
+	    break;
+	}
+    }
+    ListIterator_destroy(i);
+    return res;
+}
+
 SOEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
 {
     if (strcmp(nick, self->nick))

@@ -3,6 +3,8 @@
 
 #include <ircbot/ircchannel.h>
 
+typedef struct IrcMessage IrcMessage;
+
 IrcChannel *IrcChannel_create(const char *name)
     ATTR_NONNULL((1)) ATTR_RETNONNULL;
 void IrcChannel_handleMessage(IrcChannel *self, const IrcMessage *msg)

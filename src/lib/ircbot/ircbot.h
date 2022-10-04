@@ -6,7 +6,7 @@
 typedef struct DaemonOpts
 {
     void (*started)(void);
-    char *pidfile;
+    const char *pidfile;
     long uid;
     long gid;
     int daemonize;

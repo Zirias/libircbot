@@ -26,4 +26,6 @@ DECLEXPORT void *ListIterator_current(const ListIterator *self)
     CMETHOD ATTR_PURE;
 DECLEXPORT void ListIterator_destroy(ListIterator *self);
 
+DECLEXPORT List *List_fromString(const char *str, const char *delim);
+
 #endif
