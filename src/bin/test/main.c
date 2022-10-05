@@ -94,12 +94,19 @@ static void bier(IrcBotEvent *event)
 static void started(void)
 {
     setSyslogLogger("libircbottest", LOG_DAEMON, 0);
-    srand(time(0));
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
-    setSyslogLogger("libircbottest", LOG_DAEMON, 1);
+    if (argc == 2 && !strcmp(argv[1], "-f"))
+    {
+	setFileLogger(stderr);
+    }
+    else
+    {
+	setSyslogLogger("libircbottest", LOG_DAEMON, 1);
+	IrcBot_daemonize(-1, -1, "/tmp/libircbottest.pid", started);
+    }
 
     IrcServer *server = IrcServer_create(IRCNET, SERVER, PORT,
 	    NICK, USER, REALNAME);
@@ -110,7 +117,7 @@ int main(void)
     IrcBot_addHandler(IBET_BOTCOMMAND, 0, ORIGIN_CHANNEL, "say", say);
     IrcBot_addHandler(IBET_BOTCOMMAND, 0, ORIGIN_CHANNEL, "bier", bier);
 
-    IrcBot_daemonize(-1, -1, "/tmp/libircbottest.pid", started);
+    srand(time(0));
 
     return IrcBot_run();
 }
