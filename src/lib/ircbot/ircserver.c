@@ -11,8 +11,12 @@
 #include "service.h"
 #include "util.h"
 
+#include <ctype.h>
+#include <pwd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define RECONNTICKS 300
 #define QUICKRECONNTICKS 5
@@ -172,8 +176,42 @@ static void connDataReceived(void *receiver, void *sender, void *args)
 	logfmt(L_INFO, "IrcServer: [%s] sending login data ...",
 		servername(self));
 	sendRawCmd(self, "NICK", self->nick);
+	const char *user = self->user;
+	const char *realname = self->realname;
+	struct passwd *passwd = 0;
+	char nmbuf[64];
+	if (!user)
+	{
+	    passwd = getpwuid(getuid());
+	    user = passwd ? passwd->pw_name : "nobody";
+	}
+	if (!realname)
+	{
+	    if (!passwd) passwd = getpwnam(user);
+	    if (!passwd) passwd = getpwuid(getuid());
+	    if (passwd)
+	    {
+		char *rawnm = passwd->pw_gecos;
+		rawnm[strcspn(rawnm, ",")] = 0;
+		size_t amperpos = strcspn(rawnm, "&");
+		if (rawnm[amperpos])
+		{
+		    char *nmtail = rawnm+amperpos+1;
+		    rawnm[amperpos] = 0;
+		    snprintf(nmbuf, 64, "%s%s%s",
+			    rawnm, passwd->pw_name, nmtail);
+		    nmbuf[amperpos] = toupper(nmbuf[amperpos]);
+		}
+		else
+		{
+		    snprintf(nmbuf, 64, "%s", rawnm);
+		}
+		realname = nmbuf;
+	    }
+	    else realname = self->nick;
+	}
 	char buf[512];
-	snprintf(buf, 512, "%s 0 * :%s", self->user, self->realname);
+	snprintf(buf, 512, "%s 0 * :%s", user, realname);
 	sendRawCmd(self, "USER", buf);
 	self->connst = -2;
     }
