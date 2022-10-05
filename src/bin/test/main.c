@@ -52,41 +52,35 @@ static void say(IrcBotEvent *event)
 
 static void bier(IrcBotEvent *event)
 {
-    IrcBotResponse *response = IrcBotEvent_response(event);
-    const char *arg = IrcBotEvent_arg(event);
-    const char *origin = IrcBotEvent_origin(event);
-    const IrcChannel *channel = IrcServer_channel(
-	    IrcBotEvent_server(event), origin);
-
+    const IrcChannel *channel = IrcBotEvent_channel(event);
     if (!channel) return;
 
-    if (arg)
+    const char *arg = IrcBotEvent_arg(event);
+    List *beerfor;
+    IrcBotResponse *response = IrcBotEvent_response(event);
+    if (arg && (beerfor = List_fromString(arg, " \t")))
     {
 	char buf[256];
-	List *beerfor = List_fromString(arg, " \t");
-	if (beerfor)
+	ListIterator *i = List_iterator(beerfor);
+	while (ListIterator_moveNext(i))
 	{
-	    ListIterator *i = List_iterator(beerfor);
-	    while (ListIterator_moveNext(i))
+	    const char *nick = ListIterator_current(i);
+	    if (HashTable_get(IrcChannel_nicks(channel), nick))
 	    {
-		const char *nick = ListIterator_current(i);
-		if (HashTable_get(IrcChannel_nicks(channel), nick))
-		{
-		    snprintf(buf, 256, "wird %s mit Bier abfüllen!", nick);
-		}
-		else
-		{
-		    snprintf(buf, 256, "sieht hier keine(n) %s ...", nick);
-		}
-		IrcBotResponse_addMsg(response, origin, buf, 1);
+		snprintf(buf, 256, "wird %s mit Bier abfüllen!", nick);
 	    }
-	    ListIterator_destroy(i);
-	    List_destroy(beerfor);
+	    else
+	    {
+		snprintf(buf, 256, "sieht hier keine(n) %s ...", nick);
+	    }
+	    IrcBotResponse_addMsg(response, IrcBotEvent_origin(event), buf, 1);
 	}
+	ListIterator_destroy(i);
+	List_destroy(beerfor);
     }
     else
     {
-	IrcBotResponse_addMsg(response, origin,
+	IrcBotResponse_addMsg(response, IrcBotEvent_origin(event),
 		beer[rand() % (sizeof beer / sizeof *beer)], 0);
     }
 }

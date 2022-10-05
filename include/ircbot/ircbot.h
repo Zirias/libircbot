@@ -52,6 +52,10 @@ DECLEXPORT const char *IrcBotEvent_from(const IrcBotEvent *self) CMETHOD;
 DECLEXPORT const char *IrcBotEvent_arg(const IrcBotEvent *self) CMETHOD;
 DECLEXPORT IrcBotResponse *IrcBotEvent_response(IrcBotEvent *self)
     CMETHOD ATTR_RETNONNULL;
+
+#define IrcBotEvent_channel(e) IrcServer_channel( \
+	IrcBotEvent_server((e)), IrcBotEvent_origin((e)))
+
 DECLEXPORT void IrcBotResponse_addMsg(IrcBotResponse *self,
 	const char *to, const char *msg, int action)
     CMETHOD ATTR_NONNULL((2)) ATTR_NONNULL((3));
