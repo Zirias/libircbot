@@ -75,7 +75,7 @@ SOEXPORT void HashTable_set(HashTable *self, const char *key,
     }
 }
 
-SOEXPORT void HashTable_delete(HashTable *self, const char *key)
+SOEXPORT int HashTable_delete(HashTable *self, const char *key)
 {
     uint8_t h = hashstr(key, self->bits);
     HashTableEntry *parent = 0;
@@ -94,7 +94,9 @@ SOEXPORT void HashTable_delete(HashTable *self, const char *key)
 	free(entry->key);
 	free(entry);
 	--self->count;
+	return 1;
     }
+    return 0;
 }
 
 SOEXPORT size_t HashTable_count(const HashTable *self)

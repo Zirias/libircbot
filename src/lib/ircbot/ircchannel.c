@@ -56,16 +56,17 @@ SOLOCAL void IrcChannel_handleMessage(IrcChannel *self, const IrcMessage *msg)
     {
 	char buf[128];
 	sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
-	HashTable_delete(self->nicks, buf);
-	Event_raise(self->parted, 0, buf);
+	if (HashTable_delete(self->nicks, buf))
+	{
+	    Event_raise(self->parted, 0, buf);
+	}
     }
     else if (!strcmp(cmd, "NICK") && List_size(params) == 1)
     {
 	char buf[128];
 	sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
-	if (HashTable_get(self->nicks, buf))
+	if (HashTable_delete(self->nicks, buf))
 	{
-	    HashTable_delete(self->nicks, buf);
 	    HashTable_set(self->nicks, List_at(params, 0), self->name, 0);
 	}
     }

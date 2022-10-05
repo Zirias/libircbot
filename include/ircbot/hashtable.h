@@ -14,7 +14,7 @@ DECLEXPORT HashTable *HashTable_create(uint8_t bits)
 DECLEXPORT void HashTable_set(HashTable *self, const char *key,
 	void *obj, void (*deleter)(void *))
     CMETHOD ATTR_NONNULL((2)) ATTR_NONNULL((3));
-DECLEXPORT void HashTable_delete(HashTable *self, const char *key)
+DECLEXPORT int HashTable_delete(HashTable *self, const char *key)
     CMETHOD ATTR_NONNULL((2));
 DECLEXPORT size_t HashTable_count(const HashTable *self) CMETHOD ATTR_PURE;
 DECLEXPORT void *HashTable_get(const HashTable *self, const char *key)
