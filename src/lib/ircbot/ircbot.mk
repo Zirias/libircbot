@@ -25,7 +25,8 @@ ircbot_HEADERS_INSTALL:= 	decl \
 				log \
 				queue \
 				service \
-				stringbuilder
+				stringbuilder \
+				util
 
 ircbot_LDFLAGS:=		-pthread
 ircbot_HEADERDIR:=		include$(PSEP)ircbot

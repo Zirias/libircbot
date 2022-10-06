@@ -5,21 +5,21 @@
 #include "service.h"
 #include "util.h"
 
-SOLOCAL void *xmalloc(size_t size)
+DECLEXPORT void *xmalloc(size_t size)
 {
     void *m = malloc(size);
     if (!m) Service_panic("memory allocation failed.");
     return m;
 }
 
-SOLOCAL void *xrealloc(void *ptr, size_t size)
+DECLEXPORT void *xrealloc(void *ptr, size_t size)
 {
     void *m = realloc(ptr, size);
     if (!m) Service_panic("memory allocation failed.");
     return m;
 }
 
-SOLOCAL char *copystr(const char *src)
+DECLEXPORT char *copystr(const char *src)
 {
     if (!src) return 0;
     char *copy = xmalloc(strlen(src) + 1);
@@ -27,7 +27,7 @@ SOLOCAL char *copystr(const char *src)
     return copy;
 }
 
-SOLOCAL char *lowerstr(const char *src)
+DECLEXPORT char *lowerstr(const char *src)
 {
     char *lower = copystr(src);
     char *p = lower;
@@ -39,7 +39,7 @@ SOLOCAL char *lowerstr(const char *src)
     return lower;
 }
 
-SOLOCAL char *joinstr(const char *delim, char **strings)
+DECLEXPORT char *joinstr(const char *delim, char **strings)
 {
     int n = 0;
     size_t rlen = 0;
