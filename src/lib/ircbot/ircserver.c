@@ -412,8 +412,10 @@ SOEXPORT int IrcServer_connect(IrcServer *self)
 
 SOEXPORT void IrcServer_disconnect(IrcServer *self)
 {
-    if (!self->conn) return;
-    sendRaw(self, "QUIT :bye.\r\n");
+    Event_unregister(Service_tick(), self, connWaitLogin, 0);
+    Event_unregister(Service_tick(), self, connWaitReconn, 0);
+    if (self->connst > 0) sendRaw(self, "QUIT :bye.\r\n");
+    else if (self->conn) Connection_close(self->conn);
 }
 
 SOEXPORT const char *IrcServer_id(const IrcServer *self)
