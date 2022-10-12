@@ -8,13 +8,6 @@ C_CLASS_DECL(IrcChannel);
 C_CLASS_DECL(IrcServer);
 C_CLASS_DECL(List);
 
-typedef struct MsgReceivedEventArgs
-{
-    const char *from;
-    const char *to;
-    const char *message;
-} MsgReceivedEventArgs;
-
 DECLEXPORT IrcServer *IrcServer_create(const char *id,
 	const char *remotehost, int port,
 	const char *nick, const char *user, const char *realname)

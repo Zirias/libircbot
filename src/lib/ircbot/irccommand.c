@@ -1,10 +1,10 @@
-#include "irccommand.h"
+#include <ircbot/irccommand.h>
 
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
-IrcCommand IrcCommand_parse(const char *cmd)
+SOEXPORT IrcCommand IrcCommand_parse(const char *cmd)
 {
     if (isdigit(cmd[0]) && isdigit(cmd[1]) && isdigit(cmd[2]) && !cmd[3])
     {
@@ -105,7 +105,7 @@ IrcCommand IrcCommand_parse(const char *cmd)
     return CMD_UNKNOWN;
 }
 
-const char *IrcCommand_str(IrcCommand self)
+SOEXPORT const char *IrcCommand_str(IrcCommand self)
 {
     switch (self)
     {

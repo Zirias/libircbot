@@ -21,6 +21,8 @@ ircbot_HEADERS_INSTALL:= 	decl \
 				hashtable \
 				ircbot \
 				ircchannel \
+				irccommand \
+				ircmessage \
 				ircserver \
 				list \
 				log \

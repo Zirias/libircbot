@@ -1,4 +1,5 @@
 #include <ircbot/event.h>
+#include <ircbot/irccommand.h>
 #include <ircbot/ircserver.h>
 #include <ircbot/log.h>
 #include <ircbot/list.h>
@@ -7,7 +8,6 @@
 #include "client.h"
 #include "connection.h"
 #include "ircchannel.h"
-#include "irccommand.h"
 #include "ircmessage.h"
 #include "service.h"
 #include "util.h"
@@ -334,28 +334,6 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 
     switch (cmd)
     {
-	case MSG_PRIVMSG:
-	    if (List_size(params) == 2)
-	    {
-		MsgReceivedEventArgs ea = {
-		    .from = IrcMessage_prefix(msg),
-		    .to = List_at(params, 0),
-		    .message = List_at(params, 1)
-		};
-		if (ea.from)
-		{
-		    logfmt(L_DEBUG, "IrcServer: message from %s to %s: %s",
-			    ea.from, ea.to, ea.message);
-		}
-		else
-		{
-		    logfmt(L_DEBUG, "IrcServer: message to %s: %s",
-			    ea.to, ea.message);
-		}
-		Event_raise(self->msgReceived, 0, &ea);
-	    }
-	    break;
-
 	case RPL_MYINFO:
 	    if (List_size(params) > 2)
 	    {
@@ -422,6 +400,8 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 
 	default: ;
     }
+
+    Event_raise(self->msgReceived, cmd, (void *)msg);
 }
 
 SOEXPORT int IrcServer_connect(IrcServer *self)

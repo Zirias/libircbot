@@ -1,7 +1,7 @@
+#include <ircbot/irccommand.h>
 #include <ircbot/list.h>
 #include <ircbot/log.h>
 
-#include "irccommand.h"
 #include "ircmessage.h"
 #include "util.h"
 
@@ -96,27 +96,27 @@ SOLOCAL IrcMessage *IrcMessage_create(
     return self;
 }
 
-SOLOCAL const char *IrcMessage_prefix(const IrcMessage *self)
+SOEXPORT const char *IrcMessage_prefix(const IrcMessage *self)
 {
     return self->prefix;
 }
 
-SOLOCAL IrcCommand IrcMessage_command(const IrcMessage *self)
+SOEXPORT IrcCommand IrcMessage_command(const IrcMessage *self)
 {
     return self->command;
 }
 
-SOLOCAL const char *IrcMessage_rawCmd(const IrcMessage *self)
+SOEXPORT const char *IrcMessage_rawCmd(const IrcMessage *self)
 {
     return self->rawCmd;
 }
 
-SOLOCAL const List *IrcMessage_params(const IrcMessage *self)
+SOEXPORT const List *IrcMessage_params(const IrcMessage *self)
 {
     return self->params;
 }
 
-SOLOCAL const char *IrcMessage_rawParams(const IrcMessage *self)
+SOEXPORT const char *IrcMessage_rawParams(const IrcMessage *self)
 {
     return self->rawParams;
 }

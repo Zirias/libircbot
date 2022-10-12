@@ -1,8 +1,8 @@
 #include <ircbot/event.h>
 #include <ircbot/hashtable.h>
+#include <ircbot/irccommand.h>
 
 #include "ircchannel.h"
-#include "irccommand.h"
 #include "ircmessage.h"
 #include "util.h"
 

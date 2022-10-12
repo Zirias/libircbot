@@ -1,11 +1,13 @@
 #include <ircbot/event.h>
 #include <ircbot/ircchannel.h>
+#include <ircbot/irccommand.h>
 #include <ircbot/ircserver.h>
 #include <ircbot/list.h>
 #include <ircbot/log.h>
 
 #include "daemon.h"
 #include "ircbot.h"
+#include "ircmessage.h"
 #include "service.h"
 #include "threadpool.h"
 #include "util.h"
@@ -221,7 +223,8 @@ static void startup(void *receiver, void *sender, void *args)
 	}
 	Event_register(IrcServer_connected(server), 0, connected, 0);
 	Event_register(IrcServer_joined(server), 0, chanJoined, 0);
-	Event_register(IrcServer_msgReceived(server), 0, msgReceived, 0);
+	Event_register(IrcServer_msgReceived(server), 0,
+		msgReceived, MSG_PRIVMSG);
     }
     ListIterator_destroy(i);
 
@@ -265,12 +268,18 @@ static void msgReceived(void *receiver, void *sender, void *args)
     (void)receiver;
 
     IrcServer *server = sender;
-    MsgReceivedEventArgs *ea = args;
-    IrcChannel *channel = IrcServer_channel(server, ea->to);
+    const IrcMessage *msg = args;
+    const List *params = IrcMessage_params(msg);
 
-    if (ea->message[0] == '!' || !channel)
+    if (List_size(params) != 2) return;
+    const char *from = IrcMessage_prefix(msg);
+    const char *to = List_at(params, 0);
+    const char *message = List_at(params, 1);
+
+    IrcChannel *channel = IrcServer_channel(server, to);
+
+    if (message[0] == '!' || !channel)
     {
-	const char *message = ea->message;
 	if (message[0] == '!') ++message;
 	size_t cmdlen = strcspn(message, " \t\r\n");
 	if (cmdlen && cmdlen < 64)
@@ -279,7 +288,7 @@ static void msgReceived(void *receiver, void *sender, void *args)
 	    strncpy(cmd, message, cmdlen);
 	    cmd[cmdlen] = 0;
 	    IrcBotEventHandler *hdl = findHandler(IBET_BOTCOMMAND,
-		    IrcServer_id(server), ea->to, cmd);
+		    IrcServer_id(server), to, cmd);
 	    if (!hdl && !channel)
 	    {
 		hdl = findHandler(IBET_BOTCOMMAND, IrcServer_id(server),
@@ -298,7 +307,7 @@ static void msgReceived(void *receiver, void *sender, void *args)
 		    arg = message+cmdlen+1;
 		}
 		IrcBotEvent *e = createBotEvent(IBET_BOTCOMMAND, server,
-			ea->to, cmd, ea->from, arg);
+			to, cmd, from, arg);
 		executeHandler(hdl, e);
 		return;
 	    }
@@ -306,7 +315,7 @@ static void msgReceived(void *receiver, void *sender, void *args)
     }
 
     IrcBotEventHandler *hdl = findHandler(IBET_PRIVMSG, IrcServer_id(server),
-	    ea->to, 0);
+	    to, 0);
     if (!hdl && !channel)
     {
 	hdl = findHandler(IBET_PRIVMSG, IrcServer_id(server),
@@ -320,7 +329,7 @@ static void msgReceived(void *receiver, void *sender, void *args)
     if (hdl)
     {
 	IrcBotEvent *e = createBotEvent(IBET_PRIVMSG, server,
-		ea->to, 0, ea->from, ea->message);
+		to, 0, from, List_at(params, 1));
 	executeHandler(hdl, e);
     }
 }

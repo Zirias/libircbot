@@ -1,5 +1,5 @@
-#ifndef IRCBOT_INT_IRCCOMMAND_H
-#define IRCBOT_INT_IRCCOMMAND_H
+#ifndef IRCBOT_IRCCOMMAND_H
+#define IRCBOT_IRCCOMMAND_H
 
 #include <ircbot/decl.h>
 
@@ -218,7 +218,7 @@ typedef enum IrcCommand
     ERR_USERSDONTMATCH	    = 502,
 } IrcCommand;
 
-IrcCommand IrcCommand_parse(const char *cmd) ATTR_NONNULL((1));
-const char *IrcCommand_str(IrcCommand self);
+DECLEXPORT IrcCommand IrcCommand_parse(const char *cmd) ATTR_NONNULL((1));
+DECLEXPORT const char *IrcCommand_str(IrcCommand self);
 
 #endif
