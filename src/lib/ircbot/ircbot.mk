@@ -5,6 +5,7 @@ ircbot_MODULES:=		client \
 				hashtable \
 				ircbot \
 				ircchannel \
+				irccommand \
 				ircmessage \
 				ircserver \
 				list \
