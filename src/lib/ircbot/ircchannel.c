@@ -2,6 +2,7 @@
 #include <ircbot/hashtable.h>
 
 #include "ircchannel.h"
+#include "irccommand.h"
 #include "ircmessage.h"
 #include "util.h"
 
@@ -40,57 +41,74 @@ SOEXPORT const HashTable *IrcChannel_nicks(const IrcChannel *self)
 
 SOLOCAL void IrcChannel_handleMessage(IrcChannel *self, const IrcMessage *msg)
 {
-    const char *cmd = IrcMessage_command(msg);
+    IrcCommand cmd = IrcMessage_command(msg);
     const List *params = IrcMessage_params(msg);
-    if (!strcmp(cmd, "JOIN") && List_size(params)
-	    && !strcmp(List_at(params, 0), self->name))
+    char buf[128];
+
+    switch (cmd)
     {
-	char buf[128];
-	sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
-	HashTable_set(self->nicks, buf, self->name, 0);
-	Event_raise(self->joined, 0, buf);
-    }
-    else if ((!strcmp(cmd, "PART") && List_size(params)
-		&& !strcmp(List_at(params, 0), self->name))
-	    || !strcmp(cmd, "QUIT"))
-    {
-	char buf[128];
-	sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
-	if (HashTable_delete(self->nicks, buf))
-	{
-	    Event_raise(self->parted, 0, buf);
-	}
-    }
-    else if (!strcmp(cmd, "NICK") && List_size(params) == 1)
-    {
-	char buf[128];
-	sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
-	if (HashTable_delete(self->nicks, buf))
-	{
-	    HashTable_set(self->nicks, List_at(params, 0), self->name, 0);
-	}
-    }
-    else if (!strcmp(cmd, "353") && List_size(params) == 4
-	    && !strcmp(List_at(params, 2), self->name))
-    {
-	char *nicklist = copystr(List_at(params, 3));
-	char *i = nicklist;
-	char *nick = strsep(&i, " ");
-	while (nick)
-	{
-	    if (*nick && ((*nick != '@' && *nick != '%' && *nick != '@')
-			|| *++nick))
+	case MSG_JOIN:
+	    if (List_size(params) && !strcmp(List_at(params, 0), self->name))
 	    {
-		HashTable_set(self->nicks, nick, self->name, 0);
+		sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
+		HashTable_set(self->nicks, buf, self->name, 0);
+		Event_raise(self->joined, 0, buf);
 	    }
-	    nick = strsep(&i, " ");
-	}
-	free(nicklist);
-    }
-    else if (!strcmp(cmd, "366") && List_size(params) > 1
-	    && !strcmp(List_at(params, 1), self->name))
-    {
-	Event_raise(self->entered, 0, 0);
+	    break;
+
+	case MSG_PART:
+	    if (!List_size(params) || strcmp(List_at(params, 0), self->name))
+		break;
+	    ATTR_FALLTHROUGH;
+	case MSG_QUIT:
+	    sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
+	    if (HashTable_delete(self->nicks, buf))
+	    {
+		Event_raise(self->parted, 0, buf);
+	    }
+	    break;
+
+	case MSG_NICK:
+	    if (List_size(params) == 1)
+	    {
+		sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
+		if (HashTable_delete(self->nicks, buf))
+		{
+		    HashTable_set(self->nicks, List_at(params, 0),
+			    self->name, 0);
+		}
+	    }
+	    break;
+
+	case RPL_NAMREPLY:
+	    if (List_size(params) == 4
+		    && !strcmp(List_at(params, 2), self->name))
+	    {
+		char *nicklist = copystr(List_at(params, 3));
+		char *i = nicklist;
+		char *nick = strsep(&i, " ");
+		while (nick)
+		{
+		    if (*nick && ((*nick != '@' && *nick != '%'
+				    && *nick != '@') || *++nick))
+		    {
+			HashTable_set(self->nicks, nick, self->name, 0);
+		    }
+		    nick = strsep(&i, " ");
+		}
+		free(nicklist);
+	    }
+	    break;
+
+	case RPL_ENDOFNAMES:
+	    if (List_size(params) > 1
+		    && !strcmp(List_at(params, 1), self->name))
+	    {
+		Event_raise(self->entered, 0, 0);
+	    }
+	    break;
+
+	default: ;
     }
 }
 

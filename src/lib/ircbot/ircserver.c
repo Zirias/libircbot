@@ -7,6 +7,7 @@
 #include "client.h"
 #include "connection.h"
 #include "ircchannel.h"
+#include "irccommand.h"
 #include "ircmessage.h"
 #include "service.h"
 #include "util.h"
@@ -61,7 +62,7 @@ static void connWaitLogin(void *receiver, void *sender, void *args);
 static void checkIdle(void *receiver, void *sender, void *args);
 
 static void sendRaw(IrcServer *self, const char *command);
-static void sendRawCmd(IrcServer *self, const char *cmd, const char *args);
+static void sendRawCmd(IrcServer *self, IrcCommand cmd, const char *args);
 static void handleMessage(IrcServer *self, const IrcMessage *msg);
 
 SOEXPORT IrcServer *IrcServer_create(const char *id,
@@ -175,7 +176,7 @@ static void connDataReceived(void *receiver, void *sender, void *args)
     {
 	logfmt(L_INFO, "IrcServer: [%s] sending login data ...",
 		servername(self));
-	sendRawCmd(self, "NICK", self->nick);
+	sendRawCmd(self, MSG_NICK, self->nick);
 	const char *user = self->user;
 	const char *realname = self->realname;
 	struct passwd *passwd = 0;
@@ -212,7 +213,7 @@ static void connDataReceived(void *receiver, void *sender, void *args)
 	}
 	char buf[512];
 	snprintf(buf, 512, "%s 0 * :%s", user, realname);
-	sendRawCmd(self, "USER", buf);
+	sendRawCmd(self, MSG_USER, buf);
 	self->connst = -2;
     }
 }
@@ -285,7 +286,7 @@ static void checkIdle(void *receiver, void *sender, void *args)
     {
 	logfmt(L_INFO, "IrcServer: [%s] pinging idle connection ...",
 		servername(self));
-	sendRawCmd(self, "PING", self->nick);
+	sendRawCmd(self, MSG_PING, self->nick);
     }
     else if (self->idleticks <= -PINGTICKS)
     {
@@ -314,10 +315,10 @@ static void sendRaw(IrcServer *self, const char *command)
     }
 }
 
-static void sendRawCmd(IrcServer *self, const char *cmd, const char *args)
+static void sendRawCmd(IrcServer *self, IrcCommand cmd, const char *args)
 {
     char buf[513];
-    snprintf(buf, 513, "%s %s\r\n", cmd, args);
+    snprintf(buf, 513, "%s %s\r\n", IrcCommand_str(cmd), args);
     sendRaw(self, buf);
 }
 
@@ -328,74 +329,98 @@ static inline void destroyIrcChannel(void *chan)
 
 static void handleMessage(IrcServer *self, const IrcMessage *msg)
 {
-    const char *cmd = IrcMessage_command(msg);
+    IrcCommand cmd = IrcMessage_command(msg);
     const List *params = IrcMessage_params(msg);
-    if (!strcmp(cmd, "PRIVMSG") && List_size(params) == 2)
+
+    switch (cmd)
     {
-	MsgReceivedEventArgs ea = {
-	    .from = IrcMessage_prefix(msg),
-	    .to = List_at(params, 0),
-	    .message = List_at(params, 1)
-	};
-	if (ea.from)
-	{
-	    logfmt(L_DEBUG, "IrcServer: message from %s to %s: %s",
-		    ea.from, ea.to, ea.message);
-	}
-	else
-	{
-	    logfmt(L_DEBUG, "IrcServer: message to %s: %s", ea.to, ea.message);
-	}
-	Event_raise(self->msgReceived, 0, &ea);
-    }
-    else if (!strcmp(cmd, "004") && List_size(params) > 2)
-    {
-	free(self->name);
-	self->name = copystr(List_at(params, 1));
-	logfmt(L_INFO, "IrcServer: [%s] connected and logged in", self->name);
-	self->connst = 1;
-	Event_unregister(Service_tick(), self, connWaitLogin, 0);
-	Event_register(Service_tick(), self, checkIdle, 0);
-	if (List_size(self->channels))
-	{
-	    ListIterator *i = List_iterator(self->channels);
-	    while (ListIterator_moveNext(i))
+	case MSG_PRIVMSG:
+	    if (List_size(params) == 2)
 	    {
-		sendRawCmd(self, "JOIN", ListIterator_current(i));
+		MsgReceivedEventArgs ea = {
+		    .from = IrcMessage_prefix(msg),
+		    .to = List_at(params, 0),
+		    .message = List_at(params, 1)
+		};
+		if (ea.from)
+		{
+		    logfmt(L_DEBUG, "IrcServer: message from %s to %s: %s",
+			    ea.from, ea.to, ea.message);
+		}
+		else
+		{
+		    logfmt(L_DEBUG, "IrcServer: message to %s: %s",
+			    ea.to, ea.message);
+		}
+		Event_raise(self->msgReceived, 0, &ea);
 	    }
-	    ListIterator_destroy(i);
-	}
-	Event_raise(self->connected, 0, 0);
-    }
-    else if (!strcmp(cmd, "432"))
-    {
-	size_t nicklen = strlen(self->nick);
-	self->nick = xrealloc(self->nick, nicklen+2);
-	strcpy(self->nick+nicklen, "_");
-	sendRawCmd(self, "NICK", self->nick);
-    }
-    else if (!strcmp(cmd, "PING"))
-    {
-	sendRawCmd(self, "PONG", IrcMessage_rawParams(msg));
-    }
-    else if (!strcmp(cmd, "JOIN") && List_size(params)
-	    && !strncmp(IrcMessage_prefix(msg), self->nick, strlen(self->nick))
-	    && strcspn(IrcMessage_prefix(msg), "!") == strlen(self->nick))
-    {
-	IrcChannel *channel = IrcChannel_create(List_at(params, 0));
-	List_append(self->activeChannels, channel, destroyIrcChannel);
-	Event_raise(self->joined, 0, channel);
-    }
-    else if (!strcmp(cmd, "JOIN") || !strcmp(cmd, "PART")
-	    || !strcmp(cmd, "QUIT") || !strcmp(cmd, "NICK")
-	    || !strcmp(cmd, "353") || !strcmp(cmd, "366"))
-    {
-	ListIterator *i = List_iterator(self->activeChannels);
-	while (ListIterator_moveNext(i))
-	{
-	    IrcChannel_handleMessage(ListIterator_current(i), msg);
-	}
-	ListIterator_destroy(i);
+	    break;
+
+	case RPL_MYINFO:
+	    if (List_size(params) > 2)
+	    {
+		free(self->name);
+		self->name = copystr(List_at(params, 1));
+		logfmt(L_INFO, "IrcServer: [%s] connected and logged in",
+			self->name);
+		self->connst = 1;
+		Event_unregister(Service_tick(), self, connWaitLogin, 0);
+		Event_register(Service_tick(), self, checkIdle, 0);
+		if (List_size(self->channels))
+		{
+		    ListIterator *i = List_iterator(self->channels);
+		    while (ListIterator_moveNext(i))
+		    {
+			sendRawCmd(self, MSG_JOIN, ListIterator_current(i));
+		    }
+		    ListIterator_destroy(i);
+		}
+		Event_raise(self->connected, 0, 0);
+	    }
+	    break;
+
+	case ERR_NICKNAMEINUSE:
+	    {
+		size_t nicklen = strlen(self->nick);
+		self->nick = xrealloc(self->nick, nicklen+2);
+		strcpy(self->nick+nicklen, "_");
+		sendRawCmd(self, MSG_NICK, self->nick);
+	    }
+	    break;
+
+	case MSG_PING:
+	    sendRawCmd(self, MSG_PONG, IrcMessage_rawParams(msg));
+	    break;
+
+	case MSG_JOIN:
+	    if (List_size(params)
+		    && !strncmp(IrcMessage_prefix(msg),
+			self->nick, strlen(self->nick))
+		    && strcspn(IrcMessage_prefix(msg),
+			"!") == strlen(self->nick))
+	    {
+		IrcChannel *channel = IrcChannel_create(List_at(params, 0));
+		List_append(self->activeChannels, channel, destroyIrcChannel);
+		Event_raise(self->joined, 0, channel);
+		break;
+	    }
+	    ATTR_FALLTHROUGH;
+	case MSG_PART:
+	case MSG_QUIT:
+	case MSG_NICK:
+	case RPL_NAMREPLY:
+	case RPL_ENDOFNAMES:
+	    {
+		ListIterator *i = List_iterator(self->activeChannels);
+		while (ListIterator_moveNext(i))
+		{
+		    IrcChannel_handleMessage(ListIterator_current(i), msg);
+		}
+		ListIterator_destroy(i);
+	    }
+	    break;
+
+	default: ;
     }
 }
 
@@ -414,7 +439,7 @@ SOEXPORT void IrcServer_disconnect(IrcServer *self)
 {
     Event_unregister(Service_tick(), self, connWaitLogin, 0);
     Event_unregister(Service_tick(), self, connWaitReconn, 0);
-    if (self->connst > 0) sendRaw(self, "QUIT :bye.\r\n");
+    if (self->connst > 0) sendRawCmd(self, MSG_QUIT, ":bye.");
     else if (self->conn) Connection_close(self->conn);
 }
 
@@ -465,7 +490,7 @@ SOEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
 	self->nick = copystr(nick);
 	if (self->connst > 0)
 	{
-	    sendRawCmd(self, "NICK", self->nick);
+	    sendRawCmd(self, MSG_NICK, self->nick);
 	}
     }
 }
@@ -473,7 +498,7 @@ SOEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
 SOEXPORT void IrcServer_join(IrcServer *self, const char *channel)
 {
     List_append(self->channels, copystr(channel), free);
-    if (self->connst > 0) sendRawCmd(self, "JOIN", channel);
+    if (self->connst > 0) sendRawCmd(self, MSG_JOIN, channel);
 }
 
 static int compareChannel(void *a, const void *b)
@@ -486,7 +511,7 @@ static int compareChannel(void *a, const void *b)
 SOEXPORT void IrcServer_part(IrcServer *self, const char *channel)
 {
     List_removeAll(self->channels, compareChannel, channel);
-    if (self->connst > 0) sendRawCmd(self, "PART", channel);
+    if (self->connst > 0) sendRawCmd(self, MSG_PART, channel);
 }
 
 SOEXPORT int IrcServer_sendMsg(IrcServer *self,
@@ -500,8 +525,9 @@ SOEXPORT int IrcServer_sendMsg(IrcServer *self,
 	return -1;
     }
     char rawmsg[513];
+    const char *cmd = IrcCommand_str(MSG_PRIVMSG);
     int idx = sprintf(rawmsg,
-	    action ? "PRIVMSG %s :\001ACTION " : "PRIVMSG %s :", to);
+	    action ? "%s %s :\001ACTION " : "%s %s :", cmd, to);
     size_t maxchunk = sizeof rawmsg - idx - 3 - !!action;
     size_t msglen = strlen(message);
     char *tgt = rawmsg + idx;
