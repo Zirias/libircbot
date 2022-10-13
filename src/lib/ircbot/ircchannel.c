@@ -1,10 +1,10 @@
-#include <ircbot/event.h>
 #include <ircbot/hashtable.h>
 #include <ircbot/irccommand.h>
-#include <ircbot/ircserver.h>
 
+#include "event.h"
 #include "ircchannel.h"
 #include "ircmessage.h"
+#include "ircserver.h"
 #include "service.h"
 #include "util.h"
 
@@ -151,7 +151,7 @@ static void waitrejoin(void *receiver, void *sender, void *args)
     }
 }
 
-SOEXPORT void IrcChannel_join(IrcChannel *self)
+SOLOCAL void IrcChannel_join(IrcChannel *self)
 {
     if (self->wantJoined) return;
     self->wantJoined = 1;
@@ -167,7 +167,7 @@ SOEXPORT void IrcChannel_join(IrcChannel *self)
 	    disconnected, 0);
 }
 
-SOEXPORT void IrcChannel_part(IrcChannel *self)
+SOLOCAL void IrcChannel_part(IrcChannel *self)
 {
     self->wantJoined = 0;
     Event_unregister(IrcServer_connected(self->server), self,
@@ -308,27 +308,27 @@ static void handleMsg(void *receiver, void *sender, void *args)
     }
 }
 
-SOEXPORT Event *IrcChannel_joined(IrcChannel *self)
+SOLOCAL Event *IrcChannel_joined(IrcChannel *self)
 {
     return self->joined;
 }
 
-SOEXPORT Event *IrcChannel_parted(IrcChannel *self)
+SOLOCAL Event *IrcChannel_parted(IrcChannel *self)
 {
     return self->parted;
 }
 
-SOEXPORT Event *IrcChannel_entered(IrcChannel *self)
+SOLOCAL Event *IrcChannel_entered(IrcChannel *self)
 {
     return self->entered;
 }
 
-SOEXPORT Event *IrcChannel_left(IrcChannel *self)
+SOLOCAL Event *IrcChannel_left(IrcChannel *self)
 {
     return self->left;
 }
 
-SOEXPORT Event *IrcChannel_failed(IrcChannel *self)
+SOLOCAL Event *IrcChannel_failed(IrcChannel *self)
 {
     return self->failed;
 }

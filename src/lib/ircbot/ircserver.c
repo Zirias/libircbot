@@ -1,15 +1,15 @@
-#include <ircbot/event.h>
 #include <ircbot/hashtable.h>
 #include <ircbot/irccommand.h>
-#include <ircbot/ircserver.h>
 #include <ircbot/log.h>
 #include <ircbot/list.h>
 #include <ircbot/queue.h>
 
 #include "client.h"
 #include "connection.h"
+#include "event.h"
 #include "ircchannel.h"
 #include "ircmessage.h"
+#include "ircserver.h"
 #include "service.h"
 #include "util.h"
 
@@ -439,7 +439,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
     Event_raise(self->msgReceived, cmd, (void *)msg);
 }
 
-SOEXPORT int IrcServer_connect(IrcServer *self)
+SOLOCAL int IrcServer_connect(IrcServer *self)
 {
     if (self->conn) return 0;
     logmsg(L_DEBUG, "IrcServer: initiating TCP connection");
@@ -450,7 +450,7 @@ SOEXPORT int IrcServer_connect(IrcServer *self)
     return 0;
 }
 
-SOEXPORT void IrcServer_disconnect(IrcServer *self)
+SOLOCAL void IrcServer_disconnect(IrcServer *self)
 {
     Event_unregister(Service_tick(), self, connWaitLogin, 0);
     Event_unregister(Service_tick(), self, connWaitReconn, 0);
@@ -478,7 +478,7 @@ SOEXPORT const HashTable *IrcServer_channels(const IrcServer *self)
     return self->channels;
 }
 
-SOEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
+SOLOCAL void IrcServer_setNick(IrcServer *self, const char *nick)
 {
     if (strcmp(nick, self->nick))
     {
@@ -491,7 +491,7 @@ SOEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
     }
 }
 
-SOEXPORT void IrcServer_join(IrcServer *self, const char *channel)
+SOLOCAL void IrcServer_join(IrcServer *self, const char *channel)
 {
     IrcChannel *chan = HashTable_get(self->channels, channel);
     if (!chan)
@@ -505,7 +505,7 @@ SOEXPORT void IrcServer_join(IrcServer *self, const char *channel)
     IrcChannel_join(chan);
 }
 
-SOEXPORT void IrcServer_part(IrcServer *self, const char *channel)
+SOLOCAL void IrcServer_part(IrcServer *self, const char *channel)
 {
     IrcChannel *chan = HashTable_get(self->channels, channel);
     if (chan)
@@ -519,7 +519,7 @@ SOEXPORT void IrcServer_part(IrcServer *self, const char *channel)
     }
 }
 
-SOEXPORT int IrcServer_sendCmd(IrcServer *self, IrcCommand cmd,
+SOLOCAL int IrcServer_sendCmd(IrcServer *self, IrcCommand cmd,
 	const char *args)
 {
     if (self->connst <= 0) return -1;
@@ -527,7 +527,7 @@ SOEXPORT int IrcServer_sendCmd(IrcServer *self, IrcCommand cmd,
     return 0;
 }
 
-SOEXPORT int IrcServer_sendMsg(IrcServer *self,
+SOLOCAL int IrcServer_sendMsg(IrcServer *self,
 	const char *to, const char *message, int action)
 {
     if (self->connst <= 0) return -1;
@@ -556,22 +556,22 @@ SOEXPORT int IrcServer_sendMsg(IrcServer *self,
     return 0;
 }
 
-SOEXPORT Event *IrcServer_connected(IrcServer *self)
+SOLOCAL Event *IrcServer_connected(IrcServer *self)
 {
     return self->connected;
 }
 
-SOEXPORT Event *IrcServer_disconnected(IrcServer *self)
+SOLOCAL Event *IrcServer_disconnected(IrcServer *self)
 {
     return self->disconnected;
 }
 
-SOEXPORT Event *IrcServer_msgReceived(IrcServer *self)
+SOLOCAL Event *IrcServer_msgReceived(IrcServer *self)
 {
     return self->msgReceived;
 }
 
-SOEXPORT Event *IrcServer_joined(IrcServer *self)
+SOLOCAL Event *IrcServer_joined(IrcServer *self)
 {
     return self->joined;
 }

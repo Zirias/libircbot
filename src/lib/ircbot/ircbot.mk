@@ -17,7 +17,6 @@ ircbot_MODULES:=		client \
 				util
 
 ircbot_HEADERS_INSTALL:= 	decl \
-				event \
 				hashtable \
 				ircbot \
 				ircchannel \
@@ -27,7 +26,6 @@ ircbot_HEADERS_INSTALL:= 	decl \
 				list \
 				log \
 				queue \
-				service \
 				stringbuilder \
 				util
 

@@ -1,14 +1,14 @@
-#include <ircbot/event.h>
 #include <ircbot/hashtable.h>
-#include <ircbot/ircchannel.h>
 #include <ircbot/irccommand.h>
-#include <ircbot/ircserver.h>
 #include <ircbot/list.h>
 #include <ircbot/log.h>
 
 #include "daemon.h"
+#include "event.h"
 #include "ircbot.h"
+#include "ircchannel.h"
 #include "ircmessage.h"
+#include "ircserver.h"
 #include "service.h"
 #include "threadpool.h"
 #include "util.h"

@@ -1,6 +1,6 @@
-#include <ircbot/event.h>
 #include <ircbot/log.h>
 
+#include "event.h"
 #include "util.h"
 
 #include <stdlib.h>
@@ -24,7 +24,7 @@ struct Event
     int dirty;
 };
 
-SOEXPORT Event *Event_create(void *sender)
+SOLOCAL Event *Event_create(void *sender)
 {
     Event *self = xmalloc(sizeof *self);
     self->sender = sender;
@@ -35,7 +35,7 @@ SOEXPORT Event *Event_create(void *sender)
     return self;
 }
 
-SOEXPORT void Event_register(Event *self, void *receiver,
+SOLOCAL void Event_register(Event *self, void *receiver,
 	EventHandler handler, int id)
 {
     if (self->dirty)
@@ -67,7 +67,7 @@ SOEXPORT void Event_register(Event *self, void *receiver,
     ++self->size;
 }
 
-SOEXPORT void Event_unregister(
+SOLOCAL void Event_unregister(
 	Event *self, void *receiver, EventHandler handler, int id)
 {
     size_t pos;
@@ -84,7 +84,7 @@ SOEXPORT void Event_unregister(
     }
 }
 
-SOEXPORT void Event_raise(Event *self, int id, void *args)
+SOLOCAL void Event_raise(Event *self, int id, void *args)
 {
     for (size_t i = 0; i < self->size; ++i)
     {
@@ -97,7 +97,7 @@ SOEXPORT void Event_raise(Event *self, int id, void *args)
     }
 }
 
-SOEXPORT void Event_destroy(Event *self)
+SOLOCAL void Event_destroy(Event *self)
 {
     if (!self) return;
     free(self->handlers);
