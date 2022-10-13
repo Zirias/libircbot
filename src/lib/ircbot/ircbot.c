@@ -1,4 +1,5 @@
 #include <ircbot/event.h>
+#include <ircbot/hashtable.h>
 #include <ircbot/ircchannel.h>
 #include <ircbot/irccommand.h>
 #include <ircbot/ircserver.h>
@@ -276,7 +277,7 @@ static void msgReceived(void *receiver, void *sender, void *args)
     const char *to = List_at(params, 0);
     const char *message = List_at(params, 1);
 
-    IrcChannel *channel = IrcServer_channel(server, to);
+    IrcChannel *channel = HashTable_get(IrcServer_channels(server), to);
 
     if (message[0] == '!' || !channel)
     {
@@ -373,8 +374,8 @@ static void chanJoined(void *receiver, void *sender, void *args)
     IrcServer *server = sender;
     IrcChannel *channel = args;
 
-    Event_register(IrcChannel_joined(channel), server, userJoined, 0);
-    Event_register(IrcChannel_parted(channel), server, userParted, 0);
+    Event_register(IrcChannel_entered(channel), server, userJoined, 0);
+    Event_register(IrcChannel_left(channel), server, userParted, 0);
 
     IrcBotEventHandler *hdl = findHandler(IBET_CHANJOINED,
 	    IrcServer_id(server), IrcChannel_name(channel), 0);
@@ -527,6 +528,11 @@ SOEXPORT IrcBotEventType IrcBotEvent_type(const IrcBotEvent *self)
 SOEXPORT const IrcServer *IrcBotEvent_server(const IrcBotEvent *self)
 {
     return self->server;
+}
+
+SOEXPORT const IrcChannel *IrcBotEvent_channel(const IrcBotEvent *self)
+{
+    return HashTable_get(IrcServer_channels(self->server), self->origin);
 }
 
 SOEXPORT const char *IrcBotEvent_origin(const IrcBotEvent *self)

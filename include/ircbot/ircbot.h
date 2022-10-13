@@ -5,6 +5,7 @@
 
 C_CLASS_DECL(IrcBotEvent);
 C_CLASS_DECL(IrcBotResponse);
+C_CLASS_DECL(IrcChannel);
 C_CLASS_DECL(IrcServer);
 C_CLASS_DECL(ThreadOpts);
 
@@ -45,16 +46,16 @@ DECLEXPORT void IrcBot_addServer(IrcServer *server) ATTR_NONNULL((1));
 DECLEXPORT int IrcBot_run(void);
 
 DECLEXPORT IrcBotEventType IrcBotEvent_type(const IrcBotEvent *self) CMETHOD;
-DECLEXPORT const IrcServer *IrcBotEvent_server(const IrcBotEvent *self) CMETHOD;
+DECLEXPORT const IrcServer *IrcBotEvent_server(const IrcBotEvent *self)
+    CMETHOD;
+DECLEXPORT const IrcChannel *IrcBotEvent_channel(const IrcBotEvent *self)
+    CMETHOD;
 DECLEXPORT const char *IrcBotEvent_origin(const IrcBotEvent *self) CMETHOD;
 DECLEXPORT const char *IrcBotEvent_command(const IrcBotEvent *self) CMETHOD;
 DECLEXPORT const char *IrcBotEvent_from(const IrcBotEvent *self) CMETHOD;
 DECLEXPORT const char *IrcBotEvent_arg(const IrcBotEvent *self) CMETHOD;
 DECLEXPORT IrcBotResponse *IrcBotEvent_response(IrcBotEvent *self)
     CMETHOD ATTR_RETNONNULL;
-
-#define IrcBotEvent_channel(e) IrcServer_channel( \
-	IrcBotEvent_server((e)), IrcBotEvent_origin((e)))
 
 DECLEXPORT void IrcBotResponse_addMsg(IrcBotResponse *self,
 	const char *to, const char *msg, int action)

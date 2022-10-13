@@ -1,4 +1,5 @@
 #include <ircbot/event.h>
+#include <ircbot/hashtable.h>
 #include <ircbot/irccommand.h>
 #include <ircbot/ircserver.h>
 #include <ircbot/log.h>
@@ -33,14 +34,14 @@ struct IrcServer {
     char *nick;
     const char *user;
     const char *realname;
-    List *channels;
-    List *activeChannels;
+    HashTable *channels;
     Connection *conn;
     Queue *sendQueue;
     Event *connected;
     Event *disconnected;
     Event *msgReceived;
     Event *joined;
+    Event *parted;
     char *sendcmd;
     int sending;
     int connst;
@@ -60,6 +61,9 @@ static void connDataSent(void *receiver, void *sender, void *args);
 static void connWaitReconn(void *receiver, void *sender, void *args);
 static void connWaitLogin(void *receiver, void *sender, void *args);
 static void checkIdle(void *receiver, void *sender, void *args);
+static void chanJoined(void *receiver, void *sender, void *args);
+static void chanParted(void *receiver, void *sender, void *args);
+static void chanFailed(void *receiver, void *sender, void *args);
 
 static void sendRaw(IrcServer *self, const char *command);
 static void sendRawCmd(IrcServer *self, IrcCommand cmd, const char *args);
@@ -77,14 +81,14 @@ SOEXPORT IrcServer *IrcServer_create(const char *id,
     self->nick = copystr(nick);
     self->user = user;
     self->realname = realname;
-    self->channels = List_create();
-    self->activeChannels = List_create();
+    self->channels = HashTable_create(6);
     self->conn = 0;
     self->sendQueue = 0;
     self->connected = Event_create(self);
     self->disconnected = Event_create(self);
     self->msgReceived = Event_create(self);
     self->joined = Event_create(self);
+    self->parted = Event_create(self);
     self->sendcmd = 0;
     self->sending = 0;
     self->connst = 0;
@@ -298,6 +302,38 @@ static void checkIdle(void *receiver, void *sender, void *args)
     }
 }
 
+static void chanJoined(void *receiver, void *sender, void *args)
+{
+    IrcServer *self = receiver;
+    IrcChannel *chan = sender;
+    (void) args;
+
+    Event_raise(self->joined, 0, chan);
+}
+
+static void chanParted(void *receiver, void *sender, void *args)
+{
+    IrcServer *self = receiver;
+    IrcChannel *chan = sender;
+    (void) args;
+
+    Event_raise(self->parted, 0, chan);
+}
+
+static void chanFailed(void *receiver, void *sender, void *args)
+{
+    IrcServer *self = receiver;
+    IrcChannel *chan = sender;
+    (void) args;
+
+    const char *channel = IrcChannel_name(chan);
+    Event_unregister(IrcChannel_joined(chan), self, chanJoined, 0);
+    Event_unregister(IrcChannel_parted(chan), self, chanParted, 0);
+    Event_unregister(IrcChannel_failed(chan), self, chanFailed, 0);
+    IrcChannel_destroy(chan);
+    HashTable_delete(self->channels, channel);
+}
+
 static void sendRaw(IrcServer *self, const char *command)
 {
     char *cmd = copystr(command);
@@ -344,15 +380,6 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 		self->connst = 1;
 		Event_unregister(Service_tick(), self, connWaitLogin, 0);
 		Event_register(Service_tick(), self, checkIdle, 0);
-		if (List_size(self->channels))
-		{
-		    ListIterator *i = List_iterator(self->channels);
-		    while (ListIterator_moveNext(i))
-		    {
-			sendRawCmd(self, MSG_JOIN, ListIterator_current(i));
-		    }
-		    ListIterator_destroy(i);
-		}
 		Event_raise(self->connected, 0, 0);
 	    }
 	    break;
@@ -370,6 +397,18 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	    sendRawCmd(self, MSG_PONG, IrcMessage_rawParams(msg));
 	    break;
 
+	case MSG_NICK:
+	    if (List_size(params)
+		    && !strncmp(IrcMessage_prefix(msg),
+			self->nick, strlen(self->nick))
+		    && strcspn(IrcMessage_prefix(msg),
+			"!") == strlen(self->nick))
+	    {
+		free(self->nick);
+		self->nick = copystr(List_at(params, 0));
+	    }
+	    break;
+
 	case MSG_JOIN:
 	    if (List_size(params)
 		    && !strncmp(IrcMessage_prefix(msg),
@@ -377,24 +416,20 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 		    && strcspn(IrcMessage_prefix(msg),
 			"!") == strlen(self->nick))
 	    {
-		IrcChannel *channel = IrcChannel_create(List_at(params, 0));
-		List_append(self->activeChannels, channel, destroyIrcChannel);
-		Event_raise(self->joined, 0, channel);
-		break;
-	    }
-	    ATTR_FALLTHROUGH;
-	case MSG_PART:
-	case MSG_QUIT:
-	case MSG_NICK:
-	case RPL_NAMREPLY:
-	case RPL_ENDOFNAMES:
-	    {
-		ListIterator *i = List_iterator(self->activeChannels);
-		while (ListIterator_moveNext(i))
+		const char *chan = List_at(params, 0);
+		if (!HashTable_get(self->channels, chan))
 		{
-		    IrcChannel_handleMessage(ListIterator_current(i), msg);
+		    IrcChannel *channel = IrcChannel_create(self,
+			    List_at(params, 0));
+		    Event_register(IrcChannel_joined(channel), self,
+			    chanJoined, 0);
+		    Event_register(IrcChannel_parted(channel), self,
+			    chanParted, 0);
+		    Event_register(IrcChannel_failed(channel), self,
+			    chanFailed, 0);
+		    HashTable_set(self->channels, chan,
+			    channel, destroyIrcChannel);
 		}
-		ListIterator_destroy(i);
 	    }
 	    break;
 
@@ -438,28 +473,9 @@ SOEXPORT const char *IrcServer_nick(const IrcServer *self)
     return self->nick;
 }
 
-SOEXPORT const List *IrcServer_channels(const IrcServer *self)
+SOEXPORT const HashTable *IrcServer_channels(const IrcServer *self)
 {
-    return self->activeChannels;
-}
-
-SOEXPORT IrcChannel *IrcServer_channel(
-	const IrcServer *self, const char *channel)
-{
-    if (!self->activeChannels) return 0;
-    IrcChannel *res = 0;
-    ListIterator *i = List_iterator(self->activeChannels);
-    while (ListIterator_moveNext(i))
-    {
-	IrcChannel *curr = ListIterator_current(i);
-	if (!strcmp(IrcChannel_name(curr), channel))
-	{
-	    res = curr;
-	    break;
-	}
-    }
-    ListIterator_destroy(i);
-    return res;
+    return self->channels;
 }
 
 SOEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
@@ -477,21 +493,38 @@ SOEXPORT void IrcServer_setNick(IrcServer *self, const char *nick)
 
 SOEXPORT void IrcServer_join(IrcServer *self, const char *channel)
 {
-    List_append(self->channels, copystr(channel), free);
-    if (self->connst > 0) sendRawCmd(self, MSG_JOIN, channel);
-}
-
-static int compareChannel(void *a, const void *b)
-{
-    const char *ca = a;
-    const char *cb = b;
-    return !strcmp(ca, cb);
+    IrcChannel *chan = HashTable_get(self->channels, channel);
+    if (!chan)
+    {
+	chan = IrcChannel_create(self, channel);
+	Event_register(IrcChannel_joined(chan), self, chanJoined, 0);
+	Event_register(IrcChannel_parted(chan), self, chanParted, 0);
+	Event_register(IrcChannel_failed(chan), self, chanFailed, 0);
+	HashTable_set(self->channels, channel, chan, destroyIrcChannel);
+    }
+    IrcChannel_join(chan);
 }
 
 SOEXPORT void IrcServer_part(IrcServer *self, const char *channel)
 {
-    List_removeAll(self->channels, compareChannel, channel);
-    if (self->connst > 0) sendRawCmd(self, MSG_PART, channel);
+    IrcChannel *chan = HashTable_get(self->channels, channel);
+    if (chan)
+    {
+	IrcChannel_part(chan);
+	Event_unregister(IrcChannel_joined(chan), self, chanJoined, 0);
+	Event_unregister(IrcChannel_parted(chan), self, chanParted, 0);
+	Event_unregister(IrcChannel_failed(chan), self, chanFailed, 0);
+	IrcChannel_destroy(chan);
+	HashTable_delete(self->channels, channel);
+    }
+}
+
+SOEXPORT int IrcServer_sendCmd(IrcServer *self, IrcCommand cmd,
+	const char *args)
+{
+    if (self->connst <= 0) return -1;
+    sendRawCmd(self, cmd, args);
+    return 0;
 }
 
 SOEXPORT int IrcServer_sendMsg(IrcServer *self,
@@ -564,8 +597,8 @@ SOEXPORT void IrcServer_destroy(IrcServer *self)
     Event_destroy(self->disconnected);
     Event_destroy(self->msgReceived);
     Event_destroy(self->joined);
-    List_destroy(self->channels);
-    List_destroy(self->activeChannels);
+    Event_destroy(self->parted);
+    HashTable_destroy(self->channels);
     free(self->sendcmd);
     free(self->name);
     free(self->nick);
