@@ -12,7 +12,7 @@ typedef struct DaemonOpts
     int daemonize;
 } DaemonOpts;
 
-struct ThreadOpts
+struct IBThreadOpts
 {
     int nThreads;
     int maxThreads;

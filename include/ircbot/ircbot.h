@@ -7,7 +7,7 @@ C_CLASS_DECL(IrcBotEvent);
 C_CLASS_DECL(IrcBotResponse);
 C_CLASS_DECL(IrcChannel);
 C_CLASS_DECL(IrcServer);
-C_CLASS_DECL(ThreadOpts);
+C_CLASS_DECL(IBThreadOpts);
 
 typedef enum IrcBotEventType
 {
@@ -24,15 +24,23 @@ typedef void (*IrcBotHandler)(IrcBotEvent *event) ATTR_NONNULL((1));
 #define ORIGIN_PRIVATE ":"
 #define ORIGIN_CHANNEL "#"
 
-DECLEXPORT ThreadOpts *IrcBot_threadOpts(void) ATTR_RETNONNULL;
-DECLEXPORT void ThreadOpts_setNThreads(ThreadOpts *self, int num) CMETHOD;
-DECLEXPORT void ThreadOpts_setMaxThreads(ThreadOpts *self, int num) CMETHOD;
-DECLEXPORT void ThreadOpts_setNPerCpu(ThreadOpts *self, int num) CMETHOD;
-DECLEXPORT void ThreadOpts_setDefNThreads(ThreadOpts *self, int num) CMETHOD;
-DECLEXPORT void ThreadOpts_setQueueLen(ThreadOpts *self, int num) CMETHOD;
-DECLEXPORT void ThreadOpts_setMaxQueueLen(ThreadOpts *self, int num) CMETHOD;
-DECLEXPORT void ThreadOpts_setMinQueueLen(ThreadOpts *self, int num) CMETHOD;
-DECLEXPORT void ThreadOpts_setQLenPerThread(ThreadOpts *self, int num) CMETHOD;
+DECLEXPORT IBThreadOpts *IrcBot_threadOpts(void) ATTR_RETNONNULL;
+DECLEXPORT void IBThreadOpts_setNThreads(IBThreadOpts *self, int num)
+    CMETHOD;
+DECLEXPORT void IBThreadOpts_setMaxThreads(IBThreadOpts *self, int num)
+    CMETHOD;
+DECLEXPORT void IBThreadOpts_setNPerCpu(IBThreadOpts *self, int num)
+    CMETHOD;
+DECLEXPORT void IBThreadOpts_setDefNThreads(IBThreadOpts *self, int num)
+    CMETHOD;
+DECLEXPORT void IBThreadOpts_setQueueLen(IBThreadOpts *self, int num)
+    CMETHOD;
+DECLEXPORT void IBThreadOpts_setMaxQueueLen(IBThreadOpts *self, int num)
+    CMETHOD;
+DECLEXPORT void IBThreadOpts_setMinQueueLen(IBThreadOpts *self, int num)
+    CMETHOD;
+DECLEXPORT void IBThreadOpts_setQLenPerThread(IBThreadOpts *self, int num)
+    CMETHOD;
 
 DECLEXPORT void IrcBot_daemonize(long uid, long gid,
 	const char *pidfile, void (*started)(void));

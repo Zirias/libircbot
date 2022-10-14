@@ -54,7 +54,7 @@ typedef struct HandlerThreadProcArg
     IrcBotEvent *e;
 } HandlerThreadProcArg;
 
-static ThreadOpts threadOpts = {
+static IBThreadOpts threadOpts = {
     .nThreads = 0,
     .maxThreads = 128,
     .nPerCpu = 2,
@@ -402,47 +402,47 @@ static void connected(void *receiver, void *sender, void *args)
     }
 }
 
-SOEXPORT ThreadOpts *IrcBot_threadOpts(void)
+SOEXPORT IBThreadOpts *IrcBot_threadOpts(void)
 {
     return &threadOpts;
 }
 
-SOEXPORT void ThreadOpts_setNThreads(ThreadOpts *self, int num)
+SOEXPORT void IBThreadOpts_setNThreads(IBThreadOpts *self, int num)
 {
     self->nThreads = num;
 }
 
-SOEXPORT void ThreadOpts_setMaxThreads(ThreadOpts *self, int num)
+SOEXPORT void IBThreadOpts_setMaxThreads(IBThreadOpts *self, int num)
 {
     self->maxThreads = num;
 }
 
-SOEXPORT void ThreadOpts_setNPerCpu(ThreadOpts *self, int num)
+SOEXPORT void IBThreadOpts_setNPerCpu(IBThreadOpts *self, int num)
 {
     self->nPerCpu = num;
 }
 
-SOEXPORT void ThreadOpts_setDefNThreads(ThreadOpts *self, int num)
+SOEXPORT void IBThreadOpts_setDefNThreads(IBThreadOpts *self, int num)
 {
     self->defNThreads = num;
 }
 
-SOEXPORT void ThreadOpts_setQueueLen(ThreadOpts *self, int num)
+SOEXPORT void IBThreadOpts_setQueueLen(IBThreadOpts *self, int num)
 {
     self->queueLen = num;
 }
 
-SOEXPORT void ThreadOpts_setMaxQueueLen(ThreadOpts *self, int num)
+SOEXPORT void IBThreadOpts_setMaxQueueLen(IBThreadOpts *self, int num)
 {
     self->maxQueueLen = num;
 }
 
-SOEXPORT void ThreadOpts_setMinQueueLen(ThreadOpts *self, int num)
+SOEXPORT void IBThreadOpts_setMinQueueLen(IBThreadOpts *self, int num)
 {
     self->minQueueLen = num;
 }
 
-SOEXPORT void ThreadOpts_setQLenPerThread(ThreadOpts *self, int num)
+SOEXPORT void IBThreadOpts_setQLenPerThread(IBThreadOpts *self, int num)
 {
     self->qLenPerThread = num;
 }

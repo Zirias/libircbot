@@ -294,7 +294,7 @@ static void panicHandler(const char *msg)
     longjmp(panicjmp, -1);
 }
 
-SOLOCAL int ThreadPool_init(const ThreadOpts *opts)
+SOLOCAL int ThreadPool_init(const IBThreadOpts *opts)
 {
     sigset_t blockmask;
     sigset_t mask;
