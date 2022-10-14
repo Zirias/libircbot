@@ -44,6 +44,8 @@ DECLEXPORT void IBThreadOpts_setQLenPerThread(IBThreadOpts *self, int num)
 
 DECLEXPORT void IrcBot_daemonize(long uid, long gid,
 	const char *pidfile, void (*started)(void));
+DECLEXPORT void IrcBot_startup(int (*startup)(void));
+DECLEXPORT void IrcBot_shutdown(void (*shutdown)(void));
 
 DECLEXPORT void IrcBot_addHandler(IrcBotEventType eventType,
 	const char *serverId, const char *origin, const char *filter,

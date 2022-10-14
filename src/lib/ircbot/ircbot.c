@@ -73,6 +73,8 @@ static DaemonOpts daemonOpts = {
     .daemonize = 0
 };
 
+static int (*startupfunc)(void) = 0;
+static void (*shutdownfunc)(void) = 0;
 static IBList *servers = 0;
 static IBList *handlers = 0;
 
@@ -229,6 +231,11 @@ static void startup(void *receiver, void *sender, void *args)
     }
     IBListIterator_destroy(i);
 
+    if (startupfunc && ea->rc != EXIT_FAILURE)
+    {
+	ea->rc = startupfunc();
+    }
+
     IBLog_setAsync(1);
     if (daemonOpts.daemonize && ea->rc != EXIT_FAILURE)
     {
@@ -262,6 +269,8 @@ static void shutdown(void *receiver, void *sender, void *args)
 	IrcServer_disconnect(server);
     }
     IBListIterator_destroy(i);
+
+    if (shutdownfunc) shutdownfunc();
 }
 
 static void msgReceived(void *receiver, void *sender, void *args)
@@ -455,6 +464,16 @@ SOEXPORT void IrcBot_daemonize(long uid, long gid,
     daemonOpts.uid = uid;
     daemonOpts.gid = gid;
     daemonOpts.daemonize = 1;
+}
+
+SOEXPORT void IrcBot_startup(int (*startup)(void))
+{
+    startupfunc = startup;
+}
+
+SOEXPORT void IrcBot_shutdown(void (*shutdown)(void))
+{
+    shutdownfunc = shutdown;
 }
 
 SOEXPORT void IrcBot_addHandler(IrcBotEventType eventType,
