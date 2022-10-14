@@ -20,6 +20,10 @@ DECLEXPORT const char *IrcServer_nick(const IrcServer *self)
     CMETHOD ATTR_RETNONNULL;
 DECLEXPORT const IBHashTable *IrcServer_channels(const IrcServer *self)
     CMETHOD;
+DECLEXPORT void IrcServer_join(IrcServer *self, const char *channel)
+    CMETHOD ATTR_NONNULL((2));
+DECLEXPORT void IrcServer_part(IrcServer *self, const char *channel)
+    CMETHOD ATTR_NONNULL((2));
 DECLEXPORT void IrcServer_destroy(IrcServer *self);
 
 #endif

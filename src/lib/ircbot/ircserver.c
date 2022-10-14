@@ -491,7 +491,7 @@ SOLOCAL void IrcServer_setNick(IrcServer *self, const char *nick)
     }
 }
 
-SOLOCAL void IrcServer_join(IrcServer *self, const char *channel)
+SOEXPORT void IrcServer_join(IrcServer *self, const char *channel)
 {
     IrcChannel *chan = IBHashTable_get(self->channels, channel);
     if (!chan)
@@ -505,7 +505,7 @@ SOLOCAL void IrcServer_join(IrcServer *self, const char *channel)
     IrcChannel_join(chan);
 }
 
-SOLOCAL void IrcServer_part(IrcServer *self, const char *channel)
+SOEXPORT void IrcServer_part(IrcServer *self, const char *channel)
 {
     IrcChannel *chan = IBHashTable_get(self->channels, channel);
     if (chan)
