@@ -7,47 +7,47 @@
 
 #define INITIALCAPA 8
 
-typedef struct ListItem
+typedef struct IBListItem
 {
     void *obj;
     void (*deleter)(void *);
-} ListItem;
+} IBListItem;
 
-struct List
+struct IBList
 {
-    ListItem *items;
+    IBListItem *items;
     size_t capa;
     size_t count;
 };
 
-struct ListIterator
+struct IBListIterator
 {
     size_t count;
     size_t pos;
-    ListItem items[];
+    IBListItem items[];
 };
 
-SOEXPORT List *List_create(void)
+SOEXPORT IBList *IBList_create(void)
 {
-    List *self = IB_xmalloc(sizeof *self);
+    IBList *self = IB_xmalloc(sizeof *self);
     self->capa = INITIALCAPA;
     self->count = 0;
     self->items = IB_xmalloc(self->capa * sizeof *self->items);
     return self;
 }
 
-SOEXPORT size_t List_size(const List *self)
+SOEXPORT size_t IBList_size(const IBList *self)
 {
     return self->count;
 }
 
-SOEXPORT void *List_at(const List *self, size_t idx)
+SOEXPORT void *IBList_at(const IBList *self, size_t idx)
 {
     if (idx >= self->count) return 0;
     return self->items[idx].obj;
 }
 
-SOEXPORT void List_append(List *self, void *obj, void (*deleter)(void *))
+SOEXPORT void IBList_append(IBList *self, void *obj, void (*deleter)(void *))
 {
     if (self->count == self->capa)
     {
@@ -60,7 +60,7 @@ SOEXPORT void List_append(List *self, void *obj, void (*deleter)(void *))
     ++self->count;
 }
 
-static void removeAt(List *self, size_t i, int delete)
+static void removeAt(IBList *self, size_t i, int delete)
 {
     if (delete && self->items[i].deleter)
     {
@@ -74,7 +74,7 @@ static void removeAt(List *self, size_t i, int delete)
     --self->count;
 }
 
-SOEXPORT void List_remove(List *self, void *obj)
+SOEXPORT void IBList_remove(IBList *self, void *obj)
 {
     for (size_t i = 0; i < self->count; ++i)
     {
@@ -86,7 +86,7 @@ SOEXPORT void List_remove(List *self, void *obj)
     }
 }
 
-SOEXPORT void List_removeAll(List *self,
+SOEXPORT void IBList_removeAll(IBList *self,
 	int (*matcher)(void *, const void *), const void *arg)
 {
     for (size_t i = 0; i < self->count; ++i)
@@ -99,9 +99,9 @@ SOEXPORT void List_removeAll(List *self,
     }
 }
 
-SOEXPORT ListIterator *List_iterator(const List *self)
+SOEXPORT IBListIterator *IBList_iterator(const IBList *self)
 {
-    ListIterator *iter = IB_xmalloc(sizeof *iter +
+    IBListIterator *iter = IB_xmalloc(sizeof *iter +
 	    self->count * sizeof *self->items);
     iter->count = self->count;
     iter->pos = self->count;
@@ -109,7 +109,7 @@ SOEXPORT ListIterator *List_iterator(const List *self)
     return iter;
 }
 
-SOEXPORT void List_destroy(List *self)
+SOEXPORT void IBList_destroy(IBList *self)
 {
     if (!self) return;
     for (size_t i = 0; i < self->count; ++i)
@@ -120,27 +120,27 @@ SOEXPORT void List_destroy(List *self)
     free(self);
 }
 
-SOEXPORT int ListIterator_moveNext(ListIterator *self)
+SOEXPORT int IBListIterator_moveNext(IBListIterator *self)
 {
     if (self->pos >= self->count) self->pos = 0;
     else ++self->pos;
     return self->pos < self->count;
 }
 
-SOEXPORT void *ListIterator_current(const ListIterator *self)
+SOEXPORT void *IBListIterator_current(const IBListIterator *self)
 {
     if (self->pos >= self->count) return 0;
     return self->items[self->pos].obj;
 }
 
-SOEXPORT void ListIterator_destroy(ListIterator *self)
+SOEXPORT void IBListIterator_destroy(IBListIterator *self)
 {
     free(self);
 }
 
-SOEXPORT List *List_fromString(const char *str, const char *delim)
+SOEXPORT IBList *IBList_fromString(const char *str, const char *delim)
 {
-    List *list = 0;
+    IBList *list = 0;
     char *buf = IB_copystr(str);
     char *bufp = buf;
     char *word = 0;
@@ -149,8 +149,8 @@ SOEXPORT List *List_fromString(const char *str, const char *delim)
     {
 	if (*word)
 	{
-	    if (!list) list = List_create();
-	    List_append(list, IB_copystr(word), free);
+	    if (!list) list = IBList_create();
+	    IBList_append(list, IB_copystr(word), free);
 	}
     }
 

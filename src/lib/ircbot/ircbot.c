@@ -18,7 +18,7 @@
 
 struct IrcBotResponse
 {
-    List *messages;
+    IBList *messages;
 };
 
 struct IrcBotEvent
@@ -73,8 +73,8 @@ static DaemonOpts daemonOpts = {
     .daemonize = 0
 };
 
-static List *servers = 0;
-static List *handlers = 0;
+static IBList *servers = 0;
+static IBList *handlers = 0;
 
 static IrcBotEvent *createBotEvent(IrcBotEventType type, IrcServer *server,
 	const char *origin, const char *command, const char *from,
@@ -113,7 +113,7 @@ static IrcBotEvent *createBotEvent(IrcBotEventType type, IrcServer *server,
     }
     else e->from = 0;
     e->arg = IB_copystr(arg);
-    e->response.messages = List_create();
+    e->response.messages = IBList_create();
     e->type = type;
     return e;
 }
@@ -121,7 +121,7 @@ static IrcBotEvent *createBotEvent(IrcBotEventType type, IrcServer *server,
 static void destroyBotEvent(IrcBotEvent *e)
 {
     if (!e) return;
-    List_destroy(e->response.messages);
+    IBList_destroy(e->response.messages);
     free(e->arg);
     free(e->from);
     free(e->command);
@@ -135,10 +135,10 @@ static IrcBotEventHandler *findHandler(IrcBotEventType type,
     if (!handlers) return 0;
 
     IrcBotEventHandler *hdl = 0;
-    ListIterator *i = List_iterator(handlers);
-    while (ListIterator_moveNext(i))
+    IBListIterator *i = IBList_iterator(handlers);
+    while (IBListIterator_moveNext(i))
     {
-	IrcBotEventHandler *h = ListIterator_current(i);
+	IrcBotEventHandler *h = IBListIterator_current(i);
 
 	if (h->type != type)
 	    continue;
@@ -152,7 +152,7 @@ static IrcBotEventHandler *findHandler(IrcBotEventType type,
 	hdl = h;
 	break;
     }
-    ListIterator_destroy(i);
+    IBListIterator_destroy(i);
     return hdl;
 }
 
@@ -191,14 +191,14 @@ static void handlerJobFinished(void *receiver, void *sender, void *args)
 
     if (ThreadJob_hasCompleted(job))
     {
-	ListIterator *i = List_iterator(tparg->e->response.messages);
-	while (ListIterator_moveNext(i))
+	IBListIterator *i = IBList_iterator(tparg->e->response.messages);
+	while (IBListIterator_moveNext(i))
 	{
-	    IrcBotResponseMessage *message = ListIterator_current(i);
+	    IrcBotResponseMessage *message = IBListIterator_current(i);
 	    IrcServer_sendMsg(tparg->e->server, message->to,
 		    message->msg, message->action);
 	}
-	ListIterator_destroy(i);
+	IBListIterator_destroy(i);
     }
     else IBLog_msg(L_WARNING, "IrcBot: a handler timed out.");
 
@@ -213,10 +213,10 @@ static void startup(void *receiver, void *sender, void *args)
 
     StartupEventArgs *ea = args;
 
-    ListIterator *i = List_iterator(servers);
-    while (ListIterator_moveNext(i))
+    IBListIterator *i = IBList_iterator(servers);
+    while (IBListIterator_moveNext(i))
     {
-	IrcServer *server = ListIterator_current(i);
+	IrcServer *server = IBListIterator_current(i);
 	if (IrcServer_connect(server) < 0)
 	{
 	    ea->rc = EXIT_FAILURE;
@@ -227,7 +227,7 @@ static void startup(void *receiver, void *sender, void *args)
 	Event_register(IrcServer_msgReceived(server), 0,
 		msgReceived, MSG_PRIVMSG);
     }
-    ListIterator_destroy(i);
+    IBListIterator_destroy(i);
 
     IBLog_setAsync(1);
     if (daemonOpts.daemonize && ea->rc != EXIT_FAILURE)
@@ -253,15 +253,15 @@ static void shutdown(void *receiver, void *sender, void *args)
     (void)sender;
     (void)args;
 
-    ListIterator *i = List_iterator(servers);
-    while (ListIterator_moveNext(i))
+    IBListIterator *i = IBList_iterator(servers);
+    while (IBListIterator_moveNext(i))
     {
-	IrcServer *server = ListIterator_current(i);
+	IrcServer *server = IBListIterator_current(i);
 	Event_register(IrcServer_disconnected(server), 0, shutdownok, 0);
 	Service_shutdownLock();
 	IrcServer_disconnect(server);
     }
-    ListIterator_destroy(i);
+    IBListIterator_destroy(i);
 }
 
 static void msgReceived(void *receiver, void *sender, void *args)
@@ -270,12 +270,12 @@ static void msgReceived(void *receiver, void *sender, void *args)
 
     IrcServer *server = sender;
     const IrcMessage *msg = args;
-    const List *params = IrcMessage_params(msg);
+    const IBList *params = IrcMessage_params(msg);
 
-    if (List_size(params) != 2) return;
+    if (IBList_size(params) != 2) return;
     const char *from = IrcMessage_prefix(msg);
-    const char *to = List_at(params, 0);
-    const char *message = List_at(params, 1);
+    const char *to = IBList_at(params, 0);
+    const char *message = IBList_at(params, 1);
 
     IrcChannel *channel = HashTable_get(IrcServer_channels(server), to);
 
@@ -330,7 +330,7 @@ static void msgReceived(void *receiver, void *sender, void *args)
     if (hdl)
     {
 	IrcBotEvent *e = createBotEvent(IBET_PRIVMSG, server,
-		to, 0, from, List_at(params, 1));
+		to, 0, from, IBList_at(params, 1));
 	executeHandler(hdl, e);
     }
 }
@@ -467,8 +467,8 @@ SOEXPORT void IrcBot_addHandler(IrcBotEventType eventType,
     hdl->origin = origin;
     hdl->filter = filter;
     hdl->type = eventType;
-    if (!handlers) handlers = List_create();
-    List_append(handlers, hdl, free);
+    if (!handlers) handlers = IBList_create();
+    IBList_append(handlers, hdl, free);
 }
 
 static inline void destroyServer(void *server)
@@ -478,8 +478,8 @@ static inline void destroyServer(void *server)
 
 SOEXPORT void IrcBot_addServer(IrcServer *server)
 {
-    if (!servers) servers = List_create();
-    List_append(servers, server, destroyServer);
+    if (!servers) servers = IBList_create();
+    IBList_append(servers, server, destroyServer);
 }
 
 static int daemonrun(void *data)
@@ -505,9 +505,9 @@ static int daemonrun(void *data)
 	Service_done();
     }
 
-    List_destroy(servers);
+    IBList_destroy(servers);
     servers = 0;
-    List_destroy(handlers);
+    IBList_destroy(handlers);
     handlers = 0;
 
     return rc;
@@ -567,6 +567,6 @@ SOEXPORT void IrcBotResponse_addMsg(IrcBotResponse *self,
     message->to = IB_copystr(to);
     message->msg = IB_copystr(msg);
     message->action = action;
-    List_append(self->messages, message, destroyMessage);
+    IBList_append(self->messages, message, destroyMessage);
 }
 

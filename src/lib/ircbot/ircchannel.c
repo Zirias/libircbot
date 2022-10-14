@@ -194,13 +194,13 @@ static void handleMsg(void *receiver, void *sender, void *args)
     if (server != self->server) return;
 
     IrcCommand cmd = IrcMessage_command(msg);
-    const List *params = IrcMessage_params(msg);
+    const IBList *params = IrcMessage_params(msg);
     char buf[128];
 
     switch (cmd)
     {
 	case MSG_JOIN:
-	    if (List_size(params) && !strcmp(List_at(params, 0), self->name))
+	    if (IBList_size(params) && !strcmp(IBList_at(params, 0), self->name))
 	    {
 		sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
 		if (strcmp(buf, IrcServer_nick(self->server)))
@@ -212,7 +212,7 @@ static void handleMsg(void *receiver, void *sender, void *args)
 	    break;
 
 	case MSG_PART:
-	    if (!List_size(params) || strcmp(List_at(params, 0), self->name))
+	    if (!IBList_size(params) || strcmp(IBList_at(params, 0), self->name))
 		break;
 	    ATTR_FALLTHROUGH;
 	case MSG_QUIT:
@@ -224,22 +224,22 @@ static void handleMsg(void *receiver, void *sender, void *args)
 	    break;
 
 	case MSG_NICK:
-	    if (List_size(params) == 1)
+	    if (IBList_size(params) == 1)
 	    {
 		sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
 		if (HashTable_delete(self->nicks, buf))
 		{
-		    HashTable_set(self->nicks, List_at(params, 0),
+		    HashTable_set(self->nicks, IBList_at(params, 0),
 			    self->name, 0);
 		}
 	    }
 	    break;
 
 	case MSG_KICK:
-	    if (List_size(params) > 1
-		    && !strcmp(List_at(params, 0), self->name))
+	    if (IBList_size(params) > 1
+		    && !strcmp(IBList_at(params, 0), self->name))
 	    {
-		const char *nick = List_at(params, 1);
+		const char *nick = IBList_at(params, 1);
 		if (!strcmp(nick, IrcServer_nick(self->server)))
 		{
 		    self->isJoined = 0;
@@ -260,10 +260,10 @@ static void handleMsg(void *receiver, void *sender, void *args)
 	    break;
 
 	case RPL_NAMREPLY:
-	    if (List_size(params) == 4
-		    && !strcmp(List_at(params, 2), self->name))
+	    if (IBList_size(params) == 4
+		    && !strcmp(IBList_at(params, 2), self->name))
 	    {
-		char *nicklist = IB_copystr(List_at(params, 3));
+		char *nicklist = IB_copystr(IBList_at(params, 3));
 		char *i = nicklist;
 		char *nick = strsep(&i, " ");
 		while (nick)
@@ -281,8 +281,8 @@ static void handleMsg(void *receiver, void *sender, void *args)
 	    break;
 
 	case RPL_ENDOFNAMES:
-	    if (List_size(params) > 1
-		    && !strcmp(List_at(params, 1), self->name))
+	    if (IBList_size(params) > 1
+		    && !strcmp(IBList_at(params, 1), self->name))
 	    {
 		self->isJoined = 1;
 		Event_unregister(Service_tick(), self, waitjoin, 0);
@@ -292,7 +292,7 @@ static void handleMsg(void *receiver, void *sender, void *args)
 	    break;
 
 	case ERR_NOSUCHCHANNEL:
-	    if (List_size(params) && !strcmp(List_at(params, 0), self->name))
+	    if (IBList_size(params) && !strcmp(IBList_at(params, 0), self->name))
 	    {
 		Event_unregister(IrcServer_connected(self->server), self,
 			joinOnConnect, 0);

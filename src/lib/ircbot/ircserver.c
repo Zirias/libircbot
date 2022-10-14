@@ -366,15 +366,15 @@ static inline void destroyIrcChannel(void *chan)
 static void handleMessage(IrcServer *self, const IrcMessage *msg)
 {
     IrcCommand cmd = IrcMessage_command(msg);
-    const List *params = IrcMessage_params(msg);
+    const IBList *params = IrcMessage_params(msg);
 
     switch (cmd)
     {
 	case RPL_MYINFO:
-	    if (List_size(params) > 2)
+	    if (IBList_size(params) > 2)
 	    {
 		free(self->name);
-		self->name = IB_copystr(List_at(params, 1));
+		self->name = IB_copystr(IBList_at(params, 1));
 		IBLog_fmt(L_INFO, "IrcServer: [%s] connected and logged in",
 			self->name);
 		self->connst = 1;
@@ -398,29 +398,29 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	    break;
 
 	case MSG_NICK:
-	    if (List_size(params)
+	    if (IBList_size(params)
 		    && !strncmp(IrcMessage_prefix(msg),
 			self->nick, strlen(self->nick))
 		    && strcspn(IrcMessage_prefix(msg),
 			"!") == strlen(self->nick))
 	    {
 		free(self->nick);
-		self->nick = IB_copystr(List_at(params, 0));
+		self->nick = IB_copystr(IBList_at(params, 0));
 	    }
 	    break;
 
 	case MSG_JOIN:
-	    if (List_size(params)
+	    if (IBList_size(params)
 		    && !strncmp(IrcMessage_prefix(msg),
 			self->nick, strlen(self->nick))
 		    && strcspn(IrcMessage_prefix(msg),
 			"!") == strlen(self->nick))
 	    {
-		const char *chan = List_at(params, 0);
+		const char *chan = IBList_at(params, 0);
 		if (!HashTable_get(self->channels, chan))
 		{
 		    IrcChannel *channel = IrcChannel_create(self,
-			    List_at(params, 0));
+			    IBList_at(params, 0));
 		    Event_register(IrcChannel_joined(channel), self,
 			    chanJoined, 0);
 		    Event_register(IrcChannel_parted(channel), self,

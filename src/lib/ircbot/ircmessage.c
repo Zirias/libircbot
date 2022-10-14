@@ -13,7 +13,7 @@ struct IrcMessage
     char *prefix;
     char *rawCmd;
     char *rawParams;
-    List *params;
+    IBList *params;
     IrcCommand command;
 };
 
@@ -74,7 +74,7 @@ SOLOCAL IrcMessage *IrcMessage_create(
     currpos = e;
     if (buf[currpos] == 0x20) ++currpos;
 
-    self->params = List_create();
+    self->params = IBList_create();
     if (currpos < endpos)
     {
 	self->rawParams = IB_xmalloc(endpos-currpos+1);
@@ -84,10 +84,10 @@ SOLOCAL IrcMessage *IrcMessage_create(
 	{
 	    if (*p == ':')
 	    {
-		List_append(self->params, IB_copystr(++p), free);
+		IBList_append(self->params, IB_copystr(++p), free);
 		break;
 	    }
-	    else List_append(self->params, IB_copystr(strsep(&p, " ")), free);
+	    else IBList_append(self->params, IB_copystr(strsep(&p, " ")), free);
 	}
 	memcpy(self->rawParams, buf+currpos, endpos-currpos);
     }
@@ -111,7 +111,7 @@ SOEXPORT const char *IrcMessage_rawCmd(const IrcMessage *self)
     return self->rawCmd;
 }
 
-SOEXPORT const List *IrcMessage_params(const IrcMessage *self)
+SOEXPORT const IBList *IrcMessage_params(const IrcMessage *self)
 {
     return self->params;
 }
@@ -127,7 +127,7 @@ SOLOCAL void IrcMessage_destroy(IrcMessage *self)
     free(self->prefix);
     free(self->rawCmd);
     free(self->rawParams);
-    List_destroy(self->params);
+    IBList_destroy(self->params);
     free(self);
 }
 

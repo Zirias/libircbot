@@ -5,27 +5,27 @@
 
 #include <stddef.h>
 
-typedef struct List List;
-typedef struct ListIterator ListIterator;
+C_CLASS_DECL(IBList);
+C_CLASS_DECL(IBListIterator);
 
-DECLEXPORT List *List_create(void) ATTR_RETNONNULL;
-DECLEXPORT size_t List_size(const List *self) CMETHOD ATTR_PURE;
-DECLEXPORT void *List_at(const List *self, size_t idx) CMETHOD ATTR_PURE;
-DECLEXPORT void List_append(List *self, void *obj, void (*deleter)(void *))
+DECLEXPORT IBList *IBList_create(void) ATTR_RETNONNULL;
+DECLEXPORT size_t IBList_size(const IBList *self) CMETHOD ATTR_PURE;
+DECLEXPORT void *IBList_at(const IBList *self, size_t idx) CMETHOD ATTR_PURE;
+DECLEXPORT void IBList_append(IBList *self, void *obj, void (*deleter)(void *))
     CMETHOD ATTR_NONNULL((2));
-DECLEXPORT void List_remove(List *self, void *obj)
+DECLEXPORT void IBList_remove(IBList *self, void *obj)
     CMETHOD ATTR_NONNULL((2));
-DECLEXPORT void List_removeAll(List *self,
+DECLEXPORT void IBList_removeAll(IBList *self,
 	int (*matcher)(void *, const void *), const void *arg)
     CMETHOD ATTR_NONNULL((2));
-DECLEXPORT ListIterator *List_iterator(const List *self) CMETHOD;
-DECLEXPORT void List_destroy(List *self);
+DECLEXPORT IBListIterator *IBList_iterator(const IBList *self) CMETHOD;
+DECLEXPORT void IBList_destroy(IBList *self);
 
-DECLEXPORT int ListIterator_moveNext(ListIterator *self) CMETHOD;
-DECLEXPORT void *ListIterator_current(const ListIterator *self)
+DECLEXPORT int IBListIterator_moveNext(IBListIterator *self) CMETHOD;
+DECLEXPORT void *IBListIterator_current(const IBListIterator *self)
     CMETHOD ATTR_PURE;
-DECLEXPORT void ListIterator_destroy(ListIterator *self);
+DECLEXPORT void IBListIterator_destroy(IBListIterator *self);
 
-DECLEXPORT List *List_fromString(const char *str, const char *delim);
+DECLEXPORT IBList *IBList_fromString(const char *str, const char *delim);
 
 #endif
