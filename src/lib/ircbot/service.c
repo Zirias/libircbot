@@ -210,13 +210,13 @@ SOLOCAL int Service_run(void)
 	    gid_t gid = opts->gid;
 	    if (setgroups(1, &gid) < 0 || setgid(gid) < 0)
 	    {
-		logmsg(L_ERROR, "cannot set specified group");
+		IBLog_msg(L_ERROR, "cannot set specified group");
 		return rc;
 	    }
 	}
 	if (setuid(opts->uid) < 0)
 	{
-	    logmsg(L_ERROR, "cannot set specified user");
+	    IBLog_msg(L_ERROR, "cannot set specified user");
 	    return rc;
 	}
     }
@@ -232,31 +232,31 @@ SOLOCAL int Service_run(void)
 
     if (sigprocmask(SIG_BLOCK, &handler.sa_mask, &mask) < 0)
     {
-	logmsg(L_ERROR, "cannot set signal mask");
+	IBLog_msg(L_ERROR, "cannot set signal mask");
 	return rc;
     }
 
     if (sigaction(SIGTERM, &handler, 0) < 0)
     {
-	logmsg(L_ERROR, "cannot set signal handler for SIGTERM");
+	IBLog_msg(L_ERROR, "cannot set signal handler for SIGTERM");
 	goto done;
     }
 
     if (sigaction(SIGINT, &handler, 0) < 0)
     {
-	logmsg(L_ERROR, "cannot set signal handler for SIGINT");
+	IBLog_msg(L_ERROR, "cannot set signal handler for SIGINT");
 	goto done;
     }
 
     if (sigaction(SIGALRM, &handler, 0) < 0)
     {
-	logmsg(L_ERROR, "cannot set signal handler for SIGALRM");
+	IBLog_msg(L_ERROR, "cannot set signal handler for SIGALRM");
 	goto done;
     }
 
     if (setitimer(ITIMER_REAL, &timer, &otimer) < 0)
     {
-	logmsg(L_ERROR, "cannot set periodic timer");
+	IBLog_msg(L_ERROR, "cannot set periodic timer");
 	goto done;
     }
 
@@ -266,7 +266,7 @@ SOLOCAL int Service_run(void)
     if (rc != EXIT_SUCCESS) goto done;
 
     running = 1;
-    logmsg(L_INFO, "service started");
+    IBLog_msg(L_INFO, "service started");
 
     if (setjmp(panicjmp) < 0) goto shutdown;
 
@@ -310,7 +310,7 @@ SOLOCAL int Service_run(void)
 	}
 	if (src < 0)
 	{
-	    logmsg(L_ERROR, "pselect() failed");
+	    IBLog_msg(L_ERROR, "pselect() failed");
 	    rc = EXIT_FAILURE;
 	    break;
 	}
@@ -334,18 +334,18 @@ SOLOCAL int Service_run(void)
 
 shutdown:
     running = 0;
-    logmsg(L_INFO, "service shutting down");
+    IBLog_msg(L_INFO, "service shutting down");
 
 done:
     if (sigprocmask(SIG_SETMASK, &mask, 0) < 0)
     {
-	logmsg(L_ERROR, "cannot restore original signal mask");
+	IBLog_msg(L_ERROR, "cannot restore original signal mask");
 	rc = EXIT_FAILURE;
     }
 
     if (setitimer(ITIMER_REAL, &otimer, 0) < 0)
     {
-	logmsg(L_ERROR, "cannot restore original periodic timer");
+	IBLog_msg(L_ERROR, "cannot restore original periodic timer");
 	rc = EXIT_FAILURE;
     }
 
@@ -374,8 +374,8 @@ SOLOCAL void Service_panic(const char *msg)
     {
 	panicHandlers[i](msg);
     }
-    logsetasync(0);
-    logmsg(L_FATAL, msg);
+    IBLog_setAsync(0);
+    IBLog_msg(L_FATAL, msg);
     if (running) longjmp(panicjmp, -1);
     else abort();
 }

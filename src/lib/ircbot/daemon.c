@@ -32,7 +32,7 @@ static FILE *openpidfile(const char *pidfile)
 	pflock.l_whence = SEEK_SET;
 	if (fcntl(fileno(pf), F_GETLK, &pflock) < 0)
 	{
-	    logfmt(L_ERROR, "error getting lock info on `%s'", pidfile);
+	    IBLog_fmt(L_ERROR, "error getting lock info on `%s'", pidfile);
 	    return 0;
 	}
 	int locked = (pflock.l_type != F_UNLCK);
@@ -52,10 +52,10 @@ static FILE *openpidfile(const char *pidfile)
 	    }
 	    else
 	    {
-		logfmt(L_WARNING, "removing stale pidfile `%s'", pidfile);
+		IBLog_fmt(L_WARNING, "removing stale pidfile `%s'", pidfile);
 		if (unlink(pidfile) < 0)
 		{
-		    logfmt(L_ERROR, "cannot remove `%s'", pidfile);
+		    IBLog_fmt(L_ERROR, "cannot remove `%s'", pidfile);
 		    return 0;
 		}
 		fclose(pf);
@@ -68,13 +68,13 @@ static FILE *openpidfile(const char *pidfile)
 	    if (prc < 1 || pid != pflock.l_pid)
 	    {
 		if (prc < 1) pid = -1;
-		logfmt(L_ERROR, "pidfile `%s' content (pid %d) and lock "
+		IBLog_fmt(L_ERROR, "pidfile `%s' content (pid %d) and lock "
 			"owner (pid %d) disagree! This should never "
 			"happen, giving up!", pidfile, pid, pflock.l_pid);
 	    }
 	    else
 	    {
-		logfmt(L_ERROR, "daemon already running with pid %d", pid);
+		IBLog_fmt(L_ERROR, "daemon already running with pid %d", pid);
 	    }
 	    return 0;
 	}
@@ -82,7 +82,7 @@ static FILE *openpidfile(const char *pidfile)
     pf = fopen(pidfile, "w");
     if (!pf)
     {
-	logfmt(L_ERROR, "cannot open pidfile `%s' for writing", pidfile);
+	IBLog_fmt(L_ERROR, "cannot open pidfile `%s' for writing", pidfile);
 	return 0;
     }
     memset(&pflock, 0, sizeof pflock);
@@ -91,7 +91,7 @@ static FILE *openpidfile(const char *pidfile)
     if (fcntl(fileno(pf), F_SETLK, &pflock) < 0)
     {
 	fclose(pf);
-	logfmt(L_ERROR, "locking own pidfile `%s' failed", pidfile);
+	IBLog_fmt(L_ERROR, "locking own pidfile `%s' failed", pidfile);
 	return 0;
     }
 
@@ -113,7 +113,7 @@ static int waitpflock(FILE *pf, const char *pidfile)
     } while (lrc < 0 && errno == EINTR);
     if (lrc < 0)
     {
-	logfmt(L_ERROR, "locking own pidfile `%s' failed", pidfile);
+	IBLog_fmt(L_ERROR, "locking own pidfile `%s' failed", pidfile);
 	return -1;
     }
     return 0;
@@ -142,7 +142,7 @@ SOLOCAL int daemon_run(const daemon_main dmain, void *data,
     {
 	if (pfd[0] >= 0) close(pfd[0]);
 	if (pfd[1] >= 0) close(pfd[1]);
-	logmsg(L_ERROR, "failed to fork (1)");
+	IBLog_msg(L_ERROR, "failed to fork (1)");
 	goto done;
     }
 
@@ -177,7 +177,7 @@ SOLOCAL int daemon_run(const daemon_main dmain, void *data,
     sid = setsid();
     if (sid < 0)
     {
-	logmsg(L_ERROR, "setsid() failed");
+	IBLog_msg(L_ERROR, "setsid() failed");
 	goto done;
     }
 
@@ -197,7 +197,7 @@ SOLOCAL int daemon_run(const daemon_main dmain, void *data,
 
     if (pid < 0)
     {
-	logmsg(L_ERROR, "failed to fork (2)");
+	IBLog_msg(L_ERROR, "failed to fork (2)");
 	goto done;
     }
 
@@ -215,7 +215,7 @@ SOLOCAL int daemon_run(const daemon_main dmain, void *data,
 
     if (chdir("/") < 0)
     {
-	logmsg(L_ERROR, "chdir(\"/\") failed");
+	IBLog_msg(L_ERROR, "chdir(\"/\") failed");
 	goto done;
     }
 
@@ -255,7 +255,7 @@ SOLOCAL int daemon_run(const daemon_main dmain, void *data,
 	outfd = -1;
     }
 
-    logmsg(L_INFO, "forked into background");
+    IBLog_msg(L_INFO, "forked into background");
     rc = dmain(data);
     if (rc != EXIT_SUCCESS) write(STDERR_FILENO, "\0", 1);
     if (pf)

@@ -104,7 +104,7 @@ static void connConnected(void *receiver, void *sender, void *args)
 
     if (conn == self->conn)
     {
-	logfmt(L_INFO, "IrcServer: connected to %s, waiting for data ...",
+	IBLog_fmt(L_INFO, "IrcServer: connected to %s, waiting for data ...",
 		Connection_remoteAddr(self->conn));
 	Event_register(Connection_dataReceived(self->conn), self,
 		connDataReceived, 0);
@@ -131,7 +131,7 @@ static void connClosed(void *receiver, void *sender, void *args)
 	Queue_destroy(self->sendQueue);
 	self->sendQueue = 0;
 	Event_raise(self->disconnected, 0, 0);
-	logfmt(L_INFO, "IrcServer: [%s] disconnected", servername(self));
+	IBLog_fmt(L_INFO, "IrcServer: [%s] disconnected", servername(self));
 	free(self->name);
 	self->name = 0;
 	Event_unregister(Service_tick(), self, connWaitLogin, 0);
@@ -167,7 +167,7 @@ static void connDataReceived(void *receiver, void *sender, void *args)
     }
     else if (self->recvbufsz - pos > 4096)
     {
-	logfmt(L_ERROR, "IrcServer: [%s] protocol error.", servername(self));
+	IBLog_fmt(L_ERROR, "IrcServer: [%s] protocol error.", servername(self));
 	self->recvbufsz = 0;
     }
     else
@@ -178,7 +178,7 @@ static void connDataReceived(void *receiver, void *sender, void *args)
 
     if (self->connst == -1)
     {
-	logfmt(L_INFO, "IrcServer: [%s] sending login data ...",
+	IBLog_fmt(L_INFO, "IrcServer: [%s] sending login data ...",
 		servername(self));
 	sendRawCmd(self, MSG_NICK, self->nick);
 	const char *user = self->user;
@@ -230,7 +230,7 @@ static void connDataSent(void *receiver, void *sender, void *args)
 
     if (conn == self->conn)
     {
-	logmsg(L_DEBUG, "IrcServer: sending confirmed");
+	IBLog_msg(L_DEBUG, "IrcServer: sending confirmed");
 	free(self->sendcmd);
 	self->sendcmd = 0;
 	char *nextcmd = Queue_dequeue(self->sendQueue);
@@ -252,7 +252,7 @@ static void connWaitReconn(void *receiver, void *sender, void *args)
 
     if (--self->reconnticks <= 0)
     {
-	logfmt(L_INFO, "IrcServer: [%s] reconnecting ...", servername(self));
+	IBLog_fmt(L_INFO, "IrcServer: [%s] reconnecting ...", servername(self));
 	if (IrcServer_connect(self) < 0)
 	{
 	    self->reconnticks = RECONNTICKS;
@@ -273,7 +273,7 @@ static void connWaitLogin(void *receiver, void *sender, void *args)
     if (--self->loginticks <= 0)
     {
 	Event_unregister(Service_tick(), self, connWaitLogin, 0);
-	logfmt(L_WARNING,
+	IBLog_fmt(L_WARNING,
 		"IrcServer: [%s] timeout waiting for login, disconnecting ...",
 		servername(self));
 	Connection_close(self->conn);
@@ -288,14 +288,14 @@ static void checkIdle(void *receiver, void *sender, void *args)
 
     if (--self->idleticks == 0)
     {
-	logfmt(L_INFO, "IrcServer: [%s] pinging idle connection ...",
+	IBLog_fmt(L_INFO, "IrcServer: [%s] pinging idle connection ...",
 		servername(self));
 	sendRawCmd(self, MSG_PING, self->nick);
     }
     else if (self->idleticks <= -PINGTICKS)
     {
 	Event_unregister(Service_tick(), self, checkIdle, 0);
-	logfmt(L_WARNING,
+	IBLog_fmt(L_WARNING,
 		"IrcServer: [%s] timeout waiting for pong, disconnecting ...",
 		servername(self));
 	Connection_close(self->conn);
@@ -337,7 +337,7 @@ static void chanFailed(void *receiver, void *sender, void *args)
 static void sendRaw(IrcServer *self, const char *command)
 {
     char *cmd = IB_copystr(command);
-    logfmt(L_DEBUG, "IrcServer: sending %s", cmd);
+    IBLog_fmt(L_DEBUG, "IrcServer: sending %s", cmd);
     if (self->sending)
     {
 	Queue_enqueue(self->sendQueue, cmd, free);
@@ -375,7 +375,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	    {
 		free(self->name);
 		self->name = IB_copystr(List_at(params, 1));
-		logfmt(L_INFO, "IrcServer: [%s] connected and logged in",
+		IBLog_fmt(L_INFO, "IrcServer: [%s] connected and logged in",
 			self->name);
 		self->connst = 1;
 		Event_unregister(Service_tick(), self, connWaitLogin, 0);
@@ -442,7 +442,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 SOLOCAL int IrcServer_connect(IrcServer *self)
 {
     if (self->conn) return 0;
-    logmsg(L_DEBUG, "IrcServer: initiating TCP connection");
+    IBLog_msg(L_DEBUG, "IrcServer: initiating TCP connection");
     self->conn = Connection_createTcpClient(self->remotehost, self->port, 1);
     if (!self->conn) return -1;
     Event_register(Connection_connected(self->conn), self, connConnected, 0);
@@ -533,7 +533,7 @@ SOLOCAL int IrcServer_sendMsg(IrcServer *self,
     if (self->connst <= 0) return -1;
     if (strlen(to) > 255)
     {
-	logfmt(L_ERROR, "IrcServer: [%s] Invalid message recipient %s",
+	IBLog_fmt(L_ERROR, "IrcServer: [%s] Invalid message recipient %s",
 		servername(self), to);
 	return -1;
     }

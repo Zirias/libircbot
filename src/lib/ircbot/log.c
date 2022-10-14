@@ -9,9 +9,9 @@
 #include <string.h>
 #include <syslog.h>
 
-static logwriter currentwriter = 0;
+static IBLogWriter currentwriter = 0;
 static void *writerdata;
-static LogLevel maxlevel = L_INFO;
+static IBLogLevel maxlevel = L_INFO;
 static int logsilent = 0;
 static int logasync = 0;
 
@@ -35,16 +35,16 @@ static int syslogLevels[] =
 
 typedef struct LogJobArgs
 {
-    LogLevel level;
-    logwriter writer;
+    IBLogLevel level;
+    IBLogWriter writer;
     void *writerdata;
     char message[];
 } LogJobArgs;
 
 static void logmsgJobProc(void *arg);
-static void writeFile(LogLevel level, const char *message, void *data)
+static void writeFile(IBLogLevel level, const char *message, void *data)
     ATTR_NONNULL((2));
-static void writeSyslog(LogLevel level, const char *message, void *data)
+static void writeSyslog(IBLogLevel level, const char *message, void *data)
     ATTR_NONNULL((2));
 
 static void logmsgJobProc(void *arg)
@@ -54,25 +54,61 @@ static void logmsgJobProc(void *arg)
     free(lja);
 }
 
-static void writeFile(LogLevel level, const char *message, void *data)
+static void writeFile(IBLogLevel level, const char *message, void *data)
 {
     FILE *target = data;
     fprintf(target, "%s  %s\n", levels[level], message);
     fflush(target);
 }
 
-static void writeSyslog(LogLevel level, const char *message, void *data)
+static void writeSyslog(IBLogLevel level, const char *message, void *data)
 {
     (void)data;
     syslog(syslogLevels[level], "%s", message);
 }
 
-SOEXPORT void logmsg(LogLevel level, const char *message)
+SOEXPORT void IBLog_setFileLogger(FILE *file)
+{
+    currentwriter = writeFile;
+    writerdata = file;
+}
+
+SOEXPORT void IBLog_setSyslogLogger(const char *ident,
+	int facility, int withStderr)
+{
+    int logopts = LOG_PID;
+    if (withStderr) logopts |= LOG_PERROR;
+    openlog(ident, logopts, facility);
+    currentwriter = writeSyslog;
+    writerdata = 0;
+}
+
+SOEXPORT void IBLog_setCustomLogger(IBLogWriter writer, void *data)
+{
+    currentwriter = writer;
+    writerdata = data;
+}
+
+SOEXPORT void IBLog_setMaxLogLevel(IBLogLevel level)
+{
+    maxlevel = level;
+}
+
+SOEXPORT void IBLog_setSilent(int silent)
+{
+    logsilent = silent;
+}
+
+SOEXPORT void IBLog_setAsync(int async)
+{
+    logasync = async;
+}
+
+SOEXPORT void IBLog_msg(IBLogLevel level, const char *message)
 {
     if (!currentwriter) return;
     if (logsilent && level > L_ERROR) return;
     if (level > maxlevel) return;
-#ifndef NO_THREAD_LOG
     if (logasync && ThreadPool_active())
     {
 	size_t msgsize = strlen(message)+1;
@@ -84,12 +120,10 @@ SOEXPORT void logmsg(LogLevel level, const char *message)
 	ThreadJob *job = ThreadJob_create(logmsgJobProc, lja, 8);
 	ThreadPool_enqueue(job);
     }
-    else
-#endif
-    currentwriter(level, message, writerdata);
+    else currentwriter(level, message, writerdata);
 }
 
-SOEXPORT void logfmt(LogLevel level, const char *format, ...)
+SOEXPORT void IBLog_fmt(IBLogLevel level, const char *format, ...)
 {
     if (!currentwriter) return;
     if (logsilent && level > L_ERROR) return;
@@ -99,42 +133,6 @@ SOEXPORT void logfmt(LogLevel level, const char *format, ...)
     va_start(ap, format);
     vsnprintf(buf, MAXLOGLINE, format, ap);
     va_end(ap);
-    logmsg(level, buf);
-}
-
-SOEXPORT void logsetsilent(int silent)
-{
-    logsilent = silent;
-}
-
-SOEXPORT void logsetasync(int async)
-{
-    logasync = async;
-}
-
-SOEXPORT void setFileLogger(FILE *file)
-{
-    currentwriter = writeFile;
-    writerdata = file;
-}
-
-SOEXPORT void setSyslogLogger(const char *ident, int facility, int withStderr)
-{
-    int logopts = LOG_PID;
-    if (withStderr) logopts |= LOG_PERROR;
-    openlog(ident, logopts, facility);
-    currentwriter = writeSyslog;
-    writerdata = 0;
-}
-
-SOEXPORT void setCustomLogger(logwriter writer, void *data)
-{
-    currentwriter = writer;
-    writerdata = data;
-}
-
-SOEXPORT void setMaxLogLevel(LogLevel level)
-{
-    maxlevel = level;
+    IBLog_msg(level, buf);
 }
 

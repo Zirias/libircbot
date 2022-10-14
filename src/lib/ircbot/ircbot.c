@@ -200,7 +200,7 @@ static void handlerJobFinished(void *receiver, void *sender, void *args)
 	}
 	ListIterator_destroy(i);
     }
-    else logmsg(L_WARNING, "IrcBot: a handler timed out.");
+    else IBLog_msg(L_WARNING, "IrcBot: a handler timed out.");
 
     destroyBotEvent(tparg->e);
     free(tparg);
@@ -229,7 +229,7 @@ static void startup(void *receiver, void *sender, void *args)
     }
     ListIterator_destroy(i);
 
-    logsetasync(1);
+    IBLog_setAsync(1);
     if (daemonOpts.daemonize && ea->rc != EXIT_FAILURE)
     {
 	if (daemonOpts.started) daemonOpts.started();

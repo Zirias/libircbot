@@ -245,10 +245,10 @@ static void threadJobDone(void *receiver, void *sender, void *args)
     if (t->failed)
     {
 	pthread_join(t->handle, 0);
-	logmsg(L_WARNING, "threadpool: restarting failed thread");
+	IBLog_msg(L_WARNING, "threadpool: restarting failed thread");
 	if (pthread_create(&t->handle, 0, worker, t) < 0)
 	{
-	    logmsg(L_FATAL, "threadpool: error restarting thread");
+	    IBLog_msg(L_FATAL, "threadpool: error restarting thread");
 	    Service_quit();
 	}
 	return;
@@ -305,7 +305,7 @@ SOLOCAL int ThreadPool_init(const ThreadOpts *opts)
 
     if (sigprocmask(SIG_BLOCK, &blockmask, &mask) < 0)
     {
-	logmsg(L_ERROR, "threadpool: cannot set signal mask");
+	IBLog_msg(L_ERROR, "threadpool: cannot set signal mask");
 	return rc;
     }
 
@@ -341,7 +341,7 @@ SOLOCAL int ThreadPool_init(const ThreadOpts *opts)
     }
     else queuesize = opts->maxQueueLen;
 
-    logfmt(L_DEBUG, "threadpool: starting with %d threads and a queue for "
+    IBLog_fmt(L_DEBUG, "threadpool: starting with %d threads and a queue for "
 	    "%d jobs", nthreads, queuesize);
 
     threads = IB_xmalloc(nthreads * sizeof *threads);
@@ -353,34 +353,34 @@ SOLOCAL int ThreadPool_init(const ThreadOpts *opts)
     {
 	if (pthread_mutex_init(&threads[i].startlock, 0) < 0)
 	{
-	    logmsg(L_ERROR, "threadpool: error creating mutex");
+	    IBLog_msg(L_ERROR, "threadpool: error creating mutex");
 	    goto rollback;
 	}
 	if (pthread_cond_init(&threads[i].start, 0) < 0)
 	{
-	    logmsg(L_ERROR, "threadpool: error creating condition variable");
+	    IBLog_msg(L_ERROR, "threadpool: error creating condition variable");
 	    goto rollback_startlock;
 	}
 	if (pthread_mutex_init(&threads[i].donelock, 0) < 0)
 	{
-	    logmsg(L_ERROR, "threadpool: error creating mutex");
+	    IBLog_msg(L_ERROR, "threadpool: error creating mutex");
 	    goto rollback_start;
 	}
 	if (pthread_cond_init(&threads[i].done, 0) < 0)
 	{
-	    logmsg(L_ERROR, "threadpool: error creating condition variable");
+	    IBLog_msg(L_ERROR, "threadpool: error creating condition variable");
 	    goto rollback_donelock;
 	}
 	if (pipe(threads[i].pipefd) < 0)
 	{
-	    logmsg(L_ERROR, "threadpool: error creating pipe");
+	    IBLog_msg(L_ERROR, "threadpool: error creating pipe");
 	    goto rollback_done;
 	}
 	Event_register(Service_readyRead(), threads+i, threadJobDone,
 		threads[i].pipefd[0]);
 	if (pthread_create(&threads[i].handle, 0, worker, threads+i) < 0)
 	{
-	    logmsg(L_ERROR, "threadpool: error creating thread");
+	    IBLog_msg(L_ERROR, "threadpool: error creating thread");
 	    Event_unregister(Service_readyRead(), threads+i, threadJobDone,
 		    threads[i].pipefd[0]);
 	    goto rollback_pipe;
@@ -417,7 +417,7 @@ rollback:
 done:
     if (sigprocmask(SIG_SETMASK, &mask, 0) < 0)
     {
-	logmsg(L_ERROR, "threadpool: cannot restore signal mask");
+	IBLog_msg(L_ERROR, "threadpool: cannot restore signal mask");
 	if (rc == 0) stopThreads(nthreads);
 	rc = -1;
     }

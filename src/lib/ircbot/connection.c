@@ -83,7 +83,7 @@ static void checkPendingConnection(void *receiver, void *sender, void *args)
     Connection *self = receiver;
     if (self->connecting && !--self->connecting)
     {
-	logfmt(L_INFO, "connection: timeout connecting to %s",
+	IBLog_fmt(L_INFO, "connection: timeout connecting to %s",
 		Connection_remoteAddr(self));
 	Service_unregisterWrite(self->fd);
 	Connection_close(self);
@@ -104,7 +104,7 @@ static void writeConnection(void *receiver, void *sender, void *args)
 	if (getsockopt(self->fd, SOL_SOCKET, SO_ERROR, &err, &errlen) < 0
 		|| err)
 	{
-	    logfmt(L_INFO, "connection: failed to connect to %s",
+	    IBLog_fmt(L_INFO, "connection: failed to connect to %s",
 		    Connection_remoteAddr(self));
 	    Connection_close(self);
 	    return;
@@ -112,16 +112,16 @@ static void writeConnection(void *receiver, void *sender, void *args)
 	self->connecting = 0;
 	Service_registerRead(self->fd);
 	if (!self->nrecs) Service_unregisterWrite(self->fd);
-	logfmt(L_DEBUG, "connection: connected to %s",
+	IBLog_fmt(L_DEBUG, "connection: connected to %s",
 		Connection_remoteAddr(self));
 	Event_raise(self->connected, 0, 0);
 	return;
     }
-    logfmt(L_DEBUG, "connection: ready to write to %s",
+    IBLog_fmt(L_DEBUG, "connection: ready to write to %s",
 	Connection_remoteAddr(self));
     if (!self->nrecs)
     {
-	logfmt(L_ERROR, "connection: ready to send to %s with empty buffer",
+	IBLog_fmt(L_ERROR, "connection: ready to send to %s with empty buffer",
 		Connection_remoteAddr(self));
 	Service_unregisterWrite(self->fd);
 	return;
@@ -151,13 +151,13 @@ static void writeConnection(void *receiver, void *sender, void *args)
     }
     else if (errno == EWOULDBLOCK || errno == EAGAIN)
     {
-	logfmt(L_INFO, "connection: not ready for writing to %s",
+	IBLog_fmt(L_INFO, "connection: not ready for writing to %s",
 		Connection_remoteAddr(self));
 	return;
     }
     else
     {
-	logfmt(L_WARNING, "connection: error writing to %s",
+	IBLog_fmt(L_WARNING, "connection: error writing to %s",
 		Connection_remoteAddr(self));
 	Connection_close(self);
     }
@@ -169,11 +169,11 @@ static void readConnection(void *receiver, void *sender, void *args)
     (void)args;
 
     Connection *self = receiver;
-    logfmt(L_DEBUG, "connection: ready to read from %s",
+    IBLog_fmt(L_DEBUG, "connection: ready to read from %s",
 	    Connection_remoteAddr(self));
     if (self->args.handling)
     {
-	logfmt(L_WARNING,
+	IBLog_fmt(L_WARNING,
 		"connection: new data while read buffer from %s still handled",
 		Connection_remoteAddr(self));
 	return;
@@ -187,21 +187,21 @@ static void readConnection(void *receiver, void *sender, void *args)
 	Event_raise(self->dataReceived, 0, &self->args);
 	if (self->args.handling)
 	{
-	    logfmt(L_DEBUG, "connection: blocking reads from %s",
+	    IBLog_fmt(L_DEBUG, "connection: blocking reads from %s",
 		    Connection_remoteAddr(self));
 	    Service_unregisterRead(self->fd);
 	}
     }
     else if (errno == EWOULDBLOCK || errno == EAGAIN)
     {
-	logfmt(L_INFO, "connection: ignoring spurious read from %s",
+	IBLog_fmt(L_INFO, "connection: ignoring spurious read from %s",
 		Connection_remoteAddr(self));
     }
     else
     {
 	if (rc < 0)
 	{
-	    logfmt(L_WARNING, "connection: error reading from %s",
+	    IBLog_fmt(L_WARNING, "connection: error reading from %s",
 		    Connection_remoteAddr(self));
 	}
 	Connection_close(self);
@@ -301,18 +301,18 @@ static void resolveRemoteAddrFinished(void *receiver, void *sender, void *args)
     {
 	if (rara->rc >= 0 && strcmp(rara->name, self->addr) != 0)
 	{
-	    logfmt(L_DEBUG, "connection: %s is %s", self->addr, rara->name);
+	    IBLog_fmt(L_DEBUG, "connection: %s is %s", self->addr, rara->name);
 	    self->name = IB_copystr(rara->name);
 	}
 	else
 	{
-	    logfmt(L_DEBUG, "connection: error resolving name for %s",
+	    IBLog_fmt(L_DEBUG, "connection: error resolving name for %s",
 		    self->addr);
 	}
     }
     else
     {
-	logfmt(L_DEBUG, "connection: timeout resolving name for %s",
+	IBLog_fmt(L_DEBUG, "connection: timeout resolving name for %s",
 		self->addr);
     }
     self->resolveJob = 0;
@@ -367,7 +367,7 @@ SOLOCAL int Connection_write(Connection *self,
 SOLOCAL void Connection_activate(Connection *self)
 {
     if (self->args.handling) return;
-    logfmt(L_DEBUG, "connection: unblocking reads from %s",
+    IBLog_fmt(L_DEBUG, "connection: unblocking reads from %s",
 	    Connection_remoteAddr(self));
     Service_registerRead(self->fd);
 }

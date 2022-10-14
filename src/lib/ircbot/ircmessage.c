@@ -36,7 +36,7 @@ SOLOCAL IrcMessage *IrcMessage_create(
 	return 0;
     }
 
-    logfmt(L_DEBUG, "IrcMessage: received %.*s",
+    IBLog_fmt(L_DEBUG, "IrcMessage: received %.*s",
 	    (int)(endpos - *pos), (const char *)buf + *pos);
 
     uint16_t currpos = *pos;

@@ -27,7 +27,7 @@ SOLOCAL Connection *Connection_createTcpClient(const char *remotehost,
     struct addrinfo *res, *res0;
     if (getaddrinfo(remotehost, portstr, &hints, &res0) < 0)
     {
-	logmsg(L_ERROR, "client: cannot get address info");
+	IBLog_msg(L_ERROR, "client: cannot get address info");
 	return 0;
     }
     int fd = -1;
@@ -49,7 +49,7 @@ SOLOCAL Connection *Connection_createTcpClient(const char *remotehost,
     if (fd < 0)
     {
 	freeaddrinfo(res0);
-	logfmt(L_ERROR, "client: cannot connect to `%s'", remotehost);
+	IBLog_fmt(L_ERROR, "client: cannot connect to `%s'", remotehost);
 	return 0;
     }
     Connection *conn = Connection_create(fd, CCM_CONNECTING);
