@@ -3,18 +3,13 @@
 
 #include <ircbot/decl.h>
 
-C_CLASS_DECL(StringBuilder);
+C_CLASS_DECL(IBStringBuilder);
 
-#define StringBuilder_pass(builder, str) do { \
-    char *sbp__append = (str); \
-    StringBuilder_append((builder), sbp__append); \
-    free(sbp__append); } while (0)
-
-DECLEXPORT StringBuilder *StringBuilder_create(void) ATTR_RETNONNULL;
-DECLEXPORT void StringBuilder_append(StringBuilder *self, const char *str)
+DECLEXPORT IBStringBuilder *IBStringBuilder_create(void) ATTR_RETNONNULL;
+DECLEXPORT void IBStringBuilder_append(IBStringBuilder *self, const char *str)
     CMETHOD ATTR_NONNULL((2));
-DECLEXPORT const char *StringBuilder_str(const StringBuilder *self)
+DECLEXPORT const char *IBStringBuilder_str(const IBStringBuilder *self)
     CMETHOD ATTR_RETNONNULL ATTR_PURE;
-DECLEXPORT void StringBuilder_destroy(StringBuilder *self);
+DECLEXPORT void IBStringBuilder_destroy(IBStringBuilder *self);
 
 #endif

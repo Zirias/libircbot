@@ -7,21 +7,21 @@
 
 #define SBCHUNKSZ 512
 
-struct StringBuilder
+struct IBStringBuilder
 {
     size_t size;
     size_t capa;
     char *str;
 };
 
-SOEXPORT StringBuilder *StringBuilder_create(void)
+SOEXPORT IBStringBuilder *IBStringBuilder_create(void)
 {
-    StringBuilder *self = IB_xmalloc(sizeof *self);
+    IBStringBuilder *self = IB_xmalloc(sizeof *self);
     memset(self, 0, sizeof *self);
     return self;
 }
 
-SOEXPORT void StringBuilder_append(StringBuilder *self, const char *str)
+SOEXPORT void IBStringBuilder_append(IBStringBuilder *self, const char *str)
 {
     size_t newsz = self->size + strlen(str);
     if (self->capa <= newsz)
@@ -33,12 +33,12 @@ SOEXPORT void StringBuilder_append(StringBuilder *self, const char *str)
     self->size = newsz;
 }
 
-SOEXPORT const char *StringBuilder_str(const StringBuilder *self)
+SOEXPORT const char *IBStringBuilder_str(const IBStringBuilder *self)
 {
     return self->str;
 }
 
-SOEXPORT void StringBuilder_destroy(StringBuilder *self)
+SOEXPORT void IBStringBuilder_destroy(IBStringBuilder *self)
 {
     if (!self) return;
     free(self->str);
