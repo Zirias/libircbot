@@ -13,7 +13,7 @@ typedef struct QueueEntry
     void (*deleter)(void *);
 } QueueEntry;
 
-struct Queue
+struct IBQueue
 {
     QueueEntry *entries;
     size_t count;
@@ -22,7 +22,7 @@ struct Queue
     size_t back;
 };
 
-static inline void expand(Queue *self)
+static inline void expand(IBQueue *self)
 {
     size_t newcapa = 2*self->capa;
     self->entries = IB_xrealloc(self->entries,
@@ -37,9 +37,9 @@ static inline void expand(Queue *self)
     self->capa = newcapa;
 }
 
-SOEXPORT Queue *Queue_create(void)
+SOEXPORT IBQueue *IBQueue_create(void)
 {
-    Queue *self = IB_xmalloc(sizeof *self);
+    IBQueue *self = IB_xmalloc(sizeof *self);
     self->count = 0;
     self->capa = QUEUEINITIALCAPA;
     self->front = 0;
@@ -48,7 +48,8 @@ SOEXPORT Queue *Queue_create(void)
     return self;
 }
 
-SOEXPORT void Queue_enqueue(Queue *self, void *obj, void (*deleter)(void *))
+SOEXPORT void IBQueue_enqueue(IBQueue *self, void *obj,
+	void (*deleter)(void *))
 {
     if (self->count == self->capa) expand(self);
     self->entries[self->back].obj = obj;
@@ -57,7 +58,7 @@ SOEXPORT void Queue_enqueue(Queue *self, void *obj, void (*deleter)(void *))
     ++self->count;
 }
 
-SOEXPORT void *Queue_dequeue(Queue *self)
+SOEXPORT void *IBQueue_dequeue(IBQueue *self)
 {
     if (!self->count) return 0;
     void *obj = self->entries[self->front].obj;
@@ -66,7 +67,7 @@ SOEXPORT void *Queue_dequeue(Queue *self)
     return obj;
 }
 
-SOEXPORT void Queue_destroy(Queue *self)
+SOEXPORT void IBQueue_destroy(IBQueue *self)
 {
     if (!self) return;
     if (self->count) for (size_t i = 0, pos = self->front; i < self->count; ++i)

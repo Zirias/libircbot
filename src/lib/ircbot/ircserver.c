@@ -36,7 +36,7 @@ struct IrcServer {
     const char *realname;
     HashTable *channels;
     Connection *conn;
-    Queue *sendQueue;
+    IBQueue *sendQueue;
     Event *connected;
     Event *disconnected;
     Event *msgReceived;
@@ -110,7 +110,7 @@ static void connConnected(void *receiver, void *sender, void *args)
 		connDataReceived, 0);
 	Event_register(Connection_dataSent(self->conn), self,
 		connDataSent, 0);
-	self->sendQueue = Queue_create();
+	self->sendQueue = IBQueue_create();
 	self->connst = -1;
 	self->loginticks = LOGINTICKS;
 	Event_register(Service_tick(), self, connWaitLogin, 0);
@@ -128,7 +128,7 @@ static void connClosed(void *receiver, void *sender, void *args)
 	self->conn = 0;
 	self->reconnticks = self->connst ? QUICKRECONNTICKS : RECONNTICKS;
 	self->connst = 0;
-	Queue_destroy(self->sendQueue);
+	IBQueue_destroy(self->sendQueue);
 	self->sendQueue = 0;
 	Event_raise(self->disconnected, 0, 0);
 	IBLog_fmt(L_INFO, "IrcServer: [%s] disconnected", servername(self));
@@ -233,7 +233,7 @@ static void connDataSent(void *receiver, void *sender, void *args)
 	IBLog_msg(L_DEBUG, "IrcServer: sending confirmed");
 	free(self->sendcmd);
 	self->sendcmd = 0;
-	char *nextcmd = Queue_dequeue(self->sendQueue);
+	char *nextcmd = IBQueue_dequeue(self->sendQueue);
 	if (nextcmd)
 	{
 	    self->sendcmd = nextcmd;
@@ -340,7 +340,7 @@ static void sendRaw(IrcServer *self, const char *command)
     IBLog_fmt(L_DEBUG, "IrcServer: sending %s", cmd);
     if (self->sending)
     {
-	Queue_enqueue(self->sendQueue, cmd, free);
+	IBQueue_enqueue(self->sendQueue, cmd, free);
     }
     else
     {
@@ -590,7 +590,7 @@ SOEXPORT void IrcServer_destroy(IrcServer *self)
 	Event_unregister(Connection_closed(self->conn), self,
 		connClosed, 0);
 	IrcServer_disconnect(self);
-	Queue_destroy(self->sendQueue);
+	IBQueue_destroy(self->sendQueue);
 	Connection_close(self->conn);
     }
     Event_destroy(self->connected);
