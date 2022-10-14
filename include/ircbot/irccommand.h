@@ -3,6 +3,14 @@
 
 #include <ircbot/decl.h>
 
+/** declarations for the IrcCommand enum class
+ * @file
+ */
+
+/** All valid IRC protocol messages according to RFC 2812
+ * @class IrcCommand irccommand.h <include/irccommand.h>
+ * @enum IrcCommand irccommand.h <include/irccommand.h>
+ */
 typedef enum IrcCommand
 {
     CMD_UNKNOWN	    = 0,
@@ -218,7 +226,18 @@ typedef enum IrcCommand
     ERR_USERSDONTMATCH	    = 502,
 } IrcCommand;
 
+/** Parse a string to the corresponding IrcCommand.
+ * @memberof IrcCommand
+ * @param cmd the command string
+ * @returns the IrcCommand, or CMD_UNKNOWN
+ */
 DECLEXPORT IrcCommand IrcCommand_parse(const char *cmd) ATTR_NONNULL((1));
+
+/** Get the corresponsing string for and IrcCommand.
+ * @memberof IrcCommand
+ * @param self the IrcCommand
+ * @returns the corresponding string, or NULL if invalid
+ */
 DECLEXPORT const char *IrcCommand_str(IrcCommand self);
 
 #endif
