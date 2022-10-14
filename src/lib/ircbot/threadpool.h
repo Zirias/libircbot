@@ -3,9 +3,9 @@
 
 #include <ircbot/decl.h>
 
-typedef struct Event Event;
-typedef struct ThreadJob ThreadJob;
-typedef struct ThreadOpts ThreadOpts;
+C_CLASS_DECL(Event);
+C_CLASS_DECL(ThreadJob);
+C_CLASS_DECL(ThreadOpts);
 
 typedef void (*ThreadProc)(void *arg);
 

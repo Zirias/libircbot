@@ -8,8 +8,8 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
-typedef struct Connection Connection;
-typedef struct Event Event;
+C_CLASS_DECL(Connection);
+C_CLASS_DECL(Event);
 
 typedef struct DataReceivedEventArgs
 {
