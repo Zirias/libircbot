@@ -1,6 +1,12 @@
 #ifndef IRCBOT_DECL_H
 #define IRCBOT_DECL_H
 
+/** Common preprocessor declarations for libircbot.
+ * This file defines macros to control symbol visibility, C linkage for
+ * C++ consumers, and wrapping GNU-style attributes.
+ * @file
+ */
+
 #undef ircbot___cdecl
 #undef SOEXPORT
 #undef SOLOCAL
