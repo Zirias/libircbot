@@ -25,7 +25,8 @@ struct Queue
 static inline void expand(Queue *self)
 {
     size_t newcapa = 2*self->capa;
-    self->entries = xrealloc(self->entries, newcapa * sizeof *self->entries);
+    self->entries = IB_xrealloc(self->entries,
+	    newcapa * sizeof *self->entries);
     if (self->front)
     {
 	memcpy(self->entries+self->front+self->capa, self->entries+self->front,
@@ -38,12 +39,12 @@ static inline void expand(Queue *self)
 
 SOEXPORT Queue *Queue_create(void)
 {
-    Queue *self = xmalloc(sizeof *self);
+    Queue *self = IB_xmalloc(sizeof *self);
     self->count = 0;
     self->capa = QUEUEINITIALCAPA;
     self->front = 0;
     self->back = 0;
-    self->entries = xmalloc(self->capa * sizeof *self->entries);
+    self->entries = IB_xmalloc(self->capa * sizeof *self->entries);
     return self;
 }
 

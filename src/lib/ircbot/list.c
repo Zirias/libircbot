@@ -29,10 +29,10 @@ struct ListIterator
 
 SOEXPORT List *List_create(void)
 {
-    List *self = xmalloc(sizeof *self);
+    List *self = IB_xmalloc(sizeof *self);
     self->capa = INITIALCAPA;
     self->count = 0;
-    self->items = xmalloc(self->capa * sizeof *self->items);
+    self->items = IB_xmalloc(self->capa * sizeof *self->items);
     return self;
 }
 
@@ -52,7 +52,8 @@ SOEXPORT void List_append(List *self, void *obj, void (*deleter)(void *))
     if (self->count == self->capa)
     {
 	self->capa *= 2;
-	self->items = xrealloc(self->items, self->capa * sizeof *self->items);
+	self->items = IB_xrealloc(self->items,
+		self->capa * sizeof *self->items);
     }
     self->items[self->count].obj = obj;
     self->items[self->count].deleter = deleter;
@@ -100,7 +101,7 @@ SOEXPORT void List_removeAll(List *self,
 
 SOEXPORT ListIterator *List_iterator(const List *self)
 {
-    ListIterator *iter = xmalloc(sizeof *iter +
+    ListIterator *iter = IB_xmalloc(sizeof *iter +
 	    self->count * sizeof *self->items);
     iter->count = self->count;
     iter->pos = self->count;
@@ -140,7 +141,7 @@ SOEXPORT void ListIterator_destroy(ListIterator *self)
 SOEXPORT List *List_fromString(const char *str, const char *delim)
 {
     List *list = 0;
-    char *buf = copystr(str);
+    char *buf = IB_copystr(str);
     char *bufp = buf;
     char *word = 0;
 
@@ -149,7 +150,7 @@ SOEXPORT List *List_fromString(const char *str, const char *delim)
 	if (*word)
 	{
 	    if (!list) list = List_create();
-	    List_append(list, copystr(word), free);
+	    List_append(list, IB_copystr(word), free);
 	}
     }
 

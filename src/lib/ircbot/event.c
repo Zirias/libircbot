@@ -26,7 +26,7 @@ struct Event
 
 SOLOCAL Event *Event_create(void *sender)
 {
-    Event *self = xmalloc(sizeof *self);
+    Event *self = IB_xmalloc(sizeof *self);
     self->sender = sender;
     self->handlers = 0;
     self->size = 0;
@@ -58,7 +58,7 @@ SOLOCAL void Event_register(Event *self, void *receiver,
     if (self->size == self->capa)
     {
         self->capa += EVCHUNKSIZE;
-        self->handlers = xrealloc(self->handlers,
+        self->handlers = IB_xrealloc(self->handlers,
                 self->capa * sizeof *self->handlers);
     }
     self->handlers[self->size].receiver = receiver;

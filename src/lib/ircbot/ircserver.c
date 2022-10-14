@@ -73,12 +73,12 @@ SOEXPORT IrcServer *IrcServer_create(const char *id,
 	const char *remotehost, int port,
 	const char *nick, const char *user, const char *realname)
 {
-    IrcServer *self = xmalloc(sizeof *self);
+    IrcServer *self = IB_xmalloc(sizeof *self);
     self->id = id;
     self->remotehost = remotehost;
     self->port = port;
     self->name = 0;
-    self->nick = copystr(nick);
+    self->nick = IB_copystr(nick);
     self->user = user;
     self->realname = realname;
     self->channels = HashTable_create(6);
@@ -336,7 +336,7 @@ static void chanFailed(void *receiver, void *sender, void *args)
 
 static void sendRaw(IrcServer *self, const char *command)
 {
-    char *cmd = copystr(command);
+    char *cmd = IB_copystr(command);
     logfmt(L_DEBUG, "IrcServer: sending %s", cmd);
     if (self->sending)
     {
@@ -374,7 +374,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	    if (List_size(params) > 2)
 	    {
 		free(self->name);
-		self->name = copystr(List_at(params, 1));
+		self->name = IB_copystr(List_at(params, 1));
 		logfmt(L_INFO, "IrcServer: [%s] connected and logged in",
 			self->name);
 		self->connst = 1;
@@ -387,7 +387,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 	case ERR_NICKNAMEINUSE:
 	    {
 		size_t nicklen = strlen(self->nick);
-		self->nick = xrealloc(self->nick, nicklen+2);
+		self->nick = IB_xrealloc(self->nick, nicklen+2);
 		strcpy(self->nick+nicklen, "_");
 		sendRawCmd(self, MSG_NICK, self->nick);
 	    }
@@ -405,7 +405,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 			"!") == strlen(self->nick))
 	    {
 		free(self->nick);
-		self->nick = copystr(List_at(params, 0));
+		self->nick = IB_copystr(List_at(params, 0));
 	    }
 	    break;
 
@@ -483,7 +483,7 @@ SOLOCAL void IrcServer_setNick(IrcServer *self, const char *nick)
     if (strcmp(nick, self->nick))
     {
 	free(self->nick);
-	self->nick = copystr(nick);
+	self->nick = IB_copystr(nick);
 	if (self->connst > 0)
 	{
 	    sendRawCmd(self, MSG_NICK, self->nick);

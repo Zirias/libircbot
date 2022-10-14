@@ -42,7 +42,7 @@ SOLOCAL IrcMessage *IrcMessage_create(
     uint16_t currpos = *pos;
     *pos = endpos + 2;
 
-    IrcMessage *self = xmalloc(sizeof *self);
+    IrcMessage *self = IB_xmalloc(sizeof *self);
 
     uint16_t e;
     if (buf[currpos] == (uint8_t)':')
@@ -53,7 +53,7 @@ SOLOCAL IrcMessage *IrcMessage_create(
 	}
 	if (e > currpos)
 	{
-	    self->prefix = xmalloc(e-currpos+1);
+	    self->prefix = IB_xmalloc(e-currpos+1);
 	    memcpy(self->prefix, buf+currpos, e-currpos);
 	    self->prefix[e-currpos] = 0;
 	}
@@ -67,7 +67,7 @@ SOLOCAL IrcMessage *IrcMessage_create(
     {
 	if (buf[e] == 0x20) break;
     }
-    self->rawCmd = xmalloc(e-currpos+1);
+    self->rawCmd = IB_xmalloc(e-currpos+1);
     memcpy(self->rawCmd, buf+currpos, e-currpos);
     self->rawCmd[e-currpos] = 0;
     self->command = IrcCommand_parse(self->rawCmd);
@@ -77,17 +77,17 @@ SOLOCAL IrcMessage *IrcMessage_create(
     self->params = List_create();
     if (currpos < endpos)
     {
-	self->rawParams = xmalloc(endpos-currpos+1);
+	self->rawParams = IB_xmalloc(endpos-currpos+1);
 	memcpy(self->rawParams, buf+currpos, endpos-currpos);
 	self->rawParams[endpos-currpos] = 0;
 	for (char *p = self->rawParams; p;)
 	{
 	    if (*p == ':')
 	    {
-		List_append(self->params, copystr(++p), free);
+		List_append(self->params, IB_copystr(++p), free);
 		break;
 	    }
-	    else List_append(self->params, copystr(strsep(&p, " ")), free);
+	    else List_append(self->params, IB_copystr(strsep(&p, " ")), free);
 	}
 	memcpy(self->rawParams, buf+currpos, endpos-currpos);
     }

@@ -16,7 +16,7 @@ struct StringBuilder
 
 SOEXPORT StringBuilder *StringBuilder_create(void)
 {
-    StringBuilder *self = xmalloc(sizeof *self);
+    StringBuilder *self = IB_xmalloc(sizeof *self);
     memset(self, 0, sizeof *self);
     return self;
 }
@@ -27,7 +27,7 @@ SOEXPORT void StringBuilder_append(StringBuilder *self, const char *str)
     if (self->capa <= newsz)
     {
 	while (self->capa <= newsz) self->capa += SBCHUNKSZ;
-	self->str = xrealloc(self->str, self->capa);
+	self->str = IB_xrealloc(self->str, self->capa);
     }
     strcpy(self->str + self->size, str);
     self->size = newsz;

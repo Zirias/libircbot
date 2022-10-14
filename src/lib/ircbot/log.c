@@ -76,7 +76,7 @@ SOEXPORT void logmsg(LogLevel level, const char *message)
     if (logasync && ThreadPool_active())
     {
 	size_t msgsize = strlen(message)+1;
-	LogJobArgs *lja = xmalloc(sizeof *lja + msgsize);
+	LogJobArgs *lja = IB_xmalloc(sizeof *lja + msgsize);
 	lja->level = level;
 	lja->writer = currentwriter;
 	lja->writerdata = writerdata;

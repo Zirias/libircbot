@@ -123,7 +123,7 @@ static void *worker(void *arg)
 SOLOCAL ThreadJob *ThreadJob_create(
 	ThreadProc proc, void *arg, int timeoutTicks)
 {
-    ThreadJob *self = xmalloc(sizeof *self);
+    ThreadJob *self = IB_xmalloc(sizeof *self);
     self->proc = proc;
     self->arg = arg;
     self->finished = Event_create(self);
@@ -344,9 +344,9 @@ SOLOCAL int ThreadPool_init(const ThreadOpts *opts)
     logfmt(L_DEBUG, "threadpool: starting with %d threads and a queue for "
 	    "%d jobs", nthreads, queuesize);
 
-    threads = xmalloc(nthreads * sizeof *threads);
+    threads = IB_xmalloc(nthreads * sizeof *threads);
     memset(threads, 0, nthreads * sizeof *threads);
-    jobQueue = xmalloc(queuesize * sizeof *jobQueue);
+    jobQueue = IB_xmalloc(queuesize * sizeof *jobQueue);
     memset(jobQueue, 0, queuesize * sizeof *jobQueue);
 
     for (int i = 0; i < nthreads; ++i)

@@ -220,7 +220,7 @@ static void deleteConnection(void *receiver, void *sender, void *args)
 
 SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode)
 {
-    Connection *self = xmalloc(sizeof *self);
+    Connection *self = IB_xmalloc(sizeof *self);
     self->connected = Event_create(self);
     self->closed = Event_create(self);
     self->dataReceived = Event_create(self);
@@ -302,7 +302,7 @@ static void resolveRemoteAddrFinished(void *receiver, void *sender, void *args)
 	if (rara->rc >= 0 && strcmp(rara->name, self->addr) != 0)
 	{
 	    logfmt(L_DEBUG, "connection: %s is %s", self->addr, rara->name);
-	    self->name = copystr(rara->name);
+	    self->name = IB_copystr(rara->name);
 	}
 	else
 	{
@@ -328,7 +328,7 @@ SOLOCAL void Connection_setRemoteAddr(Connection *self,
     if (getnameinfo(addr, addrlen, hostbuf, sizeof hostbuf,
 		servbuf, sizeof servbuf, NI_NUMERICHOST|NI_NUMERICSERV) >= 0)
     {
-	self->addr = copystr(hostbuf);
+	self->addr = IB_copystr(hostbuf);
 	if (!numericOnly && !self->resolveJob && ThreadPool_active())
 	{
 	    memcpy(&self->resolveArgs.sa, addr, addrlen);
@@ -346,7 +346,7 @@ SOLOCAL void Connection_setRemoteAddrStr(Connection *self, const char *addr)
 {
     free(self->addr);
     free(self->name);
-    self->addr = copystr(addr);
+    self->addr = IB_copystr(addr);
     self->name = 0;
 }
 

@@ -38,7 +38,7 @@ struct HashTableIterator
 SOEXPORT HashTable *HashTable_create(uint8_t bits)
 {
     size_t htsize = HT_SIZE(bits);
-    HashTable *self = xmalloc(sizeof *self + htsize * sizeof *self->bucket);
+    HashTable *self = IB_xmalloc(sizeof *self + htsize * sizeof *self->bucket);
     memset(self, 0, sizeof *self + htsize * sizeof *self->bucket);
     self->bits = bits;
     return self;
@@ -64,9 +64,9 @@ SOEXPORT void HashTable_set(HashTable *self, const char *key,
     }
     else
     {
-	entry = xmalloc(sizeof *entry);
+	entry = IB_xmalloc(sizeof *entry);
 	entry->next = 0;
-	entry->key = copystr(key);
+	entry->key = IB_copystr(key);
 	entry->obj = obj;
 	entry->deleter = deleter;
 	if (parent) parent->next = entry;
@@ -117,7 +117,7 @@ SOEXPORT void *HashTable_get(const HashTable *self, const char *key)
 
 SOEXPORT HashTableIterator *HashTable_iterator(const HashTable *self)
 {
-    HashTableIterator *iter = xmalloc(
+    HashTableIterator *iter = IB_xmalloc(
 	    sizeof *iter + self->count * sizeof *iter->entries);
     iter->count = self->count;
     iter->pos = self->count;

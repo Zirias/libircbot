@@ -38,8 +38,8 @@ static void handleMsg(void *receiver, void *sender, void *args);
 
 SOLOCAL IrcChannel *IrcChannel_create(IrcServer *server, const char *name)
 {
-    IrcChannel *self = xmalloc(sizeof *self);
-    self->name = copystr(name);
+    IrcChannel *self = IB_xmalloc(sizeof *self);
+    self->name = IB_copystr(name);
     self->server = server;
     self->nicks = HashTable_create(8);
     self->joined = Event_create(self);
@@ -252,7 +252,7 @@ static void handleMsg(void *receiver, void *sender, void *args)
 		}
 		else if (HashTable_delete(self->nicks, nick))
 		{
-		    char *ea = copystr(nick);
+		    char *ea = IB_copystr(nick);
 		    Event_raise(self->left, 0, ea);
 		    free(ea);
 		}
@@ -263,7 +263,7 @@ static void handleMsg(void *receiver, void *sender, void *args)
 	    if (List_size(params) == 4
 		    && !strcmp(List_at(params, 2), self->name))
 	    {
-		char *nicklist = copystr(List_at(params, 3));
+		char *nicklist = IB_copystr(List_at(params, 3));
 		char *i = nicklist;
 		char *nick = strsep(&i, " ");
 		while (nick)

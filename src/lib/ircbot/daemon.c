@@ -119,7 +119,7 @@ static int waitpflock(FILE *pf, const char *pidfile)
     return 0;
 }
 
-int daemon_run(const daemon_main dmain, void *data,
+SOLOCAL int daemon_run(const daemon_main dmain, void *data,
 	const char *pidfile, int waitLaunched)
 {
     pid_t pid, sid;
@@ -270,7 +270,7 @@ done:
     return rc;
 }
 
-void daemon_launched(void)
+SOLOCAL void daemon_launched(void)
 {
     if (outfd >= 0)
     {

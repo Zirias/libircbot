@@ -100,19 +100,19 @@ static IrcBotEvent *createBotEvent(IrcBotEventType type, IrcServer *server,
 	const char *origin, const char *command, const char *from,
 	const char *arg)
 {
-    IrcBotEvent *e = xmalloc(sizeof *e);
+    IrcBotEvent *e = IB_xmalloc(sizeof *e);
     e->server = server;
-    e->origin = copystr(origin);
-    e->command = copystr(command);
+    e->origin = IB_copystr(origin);
+    e->command = IB_copystr(command);
     if (from)
     {
 	size_t bangpos = strcspn(from, "!");
-	e->from = xmalloc(bangpos+1);
+	e->from = IB_xmalloc(bangpos+1);
 	strncpy(e->from, from, bangpos);
 	e->from[bangpos] = 0;
     }
     else e->from = 0;
-    e->arg = copystr(arg);
+    e->arg = IB_copystr(arg);
     e->response.messages = List_create();
     e->type = type;
     return e;
@@ -164,7 +164,7 @@ static void handlerThreadProc(void *arg)
 
 static void executeHandler(IrcBotEventHandler *hdl, IrcBotEvent *e)
 {
-    HandlerThreadProcArg *tparg = xmalloc(sizeof *tparg);
+    HandlerThreadProcArg *tparg = IB_xmalloc(sizeof *tparg);
     tparg->hdl = hdl;
     tparg->e = e;
     ThreadJob *job = ThreadJob_create(handlerThreadProc, tparg, 30);
@@ -461,7 +461,7 @@ SOEXPORT void IrcBot_addHandler(IrcBotEventType eventType,
 	const char *serverId, const char *origin, const char *filter,
 	IrcBotHandler handler)
 {
-    IrcBotEventHandler *hdl = xmalloc(sizeof *hdl);
+    IrcBotEventHandler *hdl = IB_xmalloc(sizeof *hdl);
     hdl->handler = handler;
     hdl->serverId = serverId;
     hdl->origin = origin;
@@ -563,9 +563,9 @@ SOEXPORT IrcBotResponse *IrcBotEvent_response(IrcBotEvent *self)
 SOEXPORT void IrcBotResponse_addMsg(IrcBotResponse *self,
 	const char *to, const char *msg, int action)
 {
-    IrcBotResponseMessage *message = xmalloc(sizeof *message);
-    message->to = copystr(to);
-    message->msg = copystr(msg);
+    IrcBotResponseMessage *message = IB_xmalloc(sizeof *message);
+    message->to = IB_copystr(to);
+    message->msg = IB_copystr(msg);
     message->action = action;
     List_append(self->messages, message, destroyMessage);
 }

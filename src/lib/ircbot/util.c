@@ -5,31 +5,31 @@
 #include "service.h"
 #include "util.h"
 
-DECLEXPORT void *xmalloc(size_t size)
+DECLEXPORT void *IB_xmalloc(size_t size)
 {
     void *m = malloc(size);
     if (!m) Service_panic("memory allocation failed.");
     return m;
 }
 
-DECLEXPORT void *xrealloc(void *ptr, size_t size)
+DECLEXPORT void *IB_xrealloc(void *ptr, size_t size)
 {
     void *m = realloc(ptr, size);
     if (!m) Service_panic("memory allocation failed.");
     return m;
 }
 
-DECLEXPORT char *copystr(const char *src)
+DECLEXPORT char *IB_copystr(const char *src)
 {
     if (!src) return 0;
-    char *copy = xmalloc(strlen(src) + 1);
+    char *copy = IB_xmalloc(strlen(src) + 1);
     strcpy(copy, src);
     return copy;
 }
 
-DECLEXPORT char *lowerstr(const char *src)
+DECLEXPORT char *IB_lowerstr(const char *src)
 {
-    char *lower = copystr(src);
+    char *lower = IB_copystr(src);
     char *p = lower;
     if (p) while (*p)
     {
@@ -39,7 +39,7 @@ DECLEXPORT char *lowerstr(const char *src)
     return lower;
 }
 
-DECLEXPORT char *joinstr(const char *delim, char **strings)
+DECLEXPORT char *IB_joinstr(const char *delim, char **strings)
 {
     int n = 0;
     size_t rlen = 0;
@@ -55,7 +55,7 @@ DECLEXPORT char *joinstr(const char *delim, char **strings)
     {
 	rlen += (n - 1) * dlen;
     }
-    char *joined = xmalloc(rlen + 1);
+    char *joined = IB_xmalloc(rlen + 1);
     strcpy(joined, *strings);
     char *w = joined + strlen(*strings);
     cur = strings+1;
@@ -86,7 +86,7 @@ SOLOCAL void appendchr(char **str, size_t *size, size_t *pos,
     if (*pos >= *size)
     {
 	*size += chunksz;
-	*str = xrealloc(*str, *size);
+	*str = IB_xrealloc(*str, *size);
     }
     (*str)[(*pos)++] = c;
 }
