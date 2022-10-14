@@ -3,7 +3,7 @@
 
 #include <ircbot/decl.h>
 
-C_CLASS_DECL(HashTable);
+C_CLASS_DECL(IBHashTable);
 C_CLASS_DECL(IrcChannel);
 C_CLASS_DECL(IrcServer);
 
@@ -18,7 +18,7 @@ DECLEXPORT const char *IrcServer_name(const IrcServer *self)
     CMETHOD ATTR_RETNONNULL;
 DECLEXPORT const char *IrcServer_nick(const IrcServer *self)
     CMETHOD ATTR_RETNONNULL;
-DECLEXPORT const HashTable *IrcServer_channels(const IrcServer *self)
+DECLEXPORT const IBHashTable *IrcServer_channels(const IrcServer *self)
     CMETHOD;
 DECLEXPORT void IrcServer_destroy(IrcServer *self);
 

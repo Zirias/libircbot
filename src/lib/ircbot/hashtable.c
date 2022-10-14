@@ -6,20 +6,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct HashTableEntry HashTableEntry;
-struct HashTableEntry
+typedef struct IBHashTableEntry IBHashTableEntry;
+struct IBHashTableEntry
 {
-    HashTableEntry *next;
+    IBHashTableEntry *next;
     char *key;
     void *obj;
     void (*deleter)(void *);
 };
 
-struct HashTable
+struct IBHashTable
 {
     size_t count;
     uint8_t bits;
-    HashTableEntry *bucket[];
+    IBHashTableEntry *bucket[];
 };
 
 typedef struct IteratorEntry
@@ -28,28 +28,28 @@ typedef struct IteratorEntry
     void *obj;
 } IteratorEntry;
 
-struct HashTableIterator
+struct IBHashTableIterator
 {
     size_t count;
     size_t pos;
     IteratorEntry entries[];
 };
 
-SOEXPORT HashTable *HashTable_create(uint8_t bits)
+SOEXPORT IBHashTable *IBHashTable_create(uint8_t bits)
 {
     size_t htsize = HT_SIZE(bits);
-    HashTable *self = IB_xmalloc(sizeof *self + htsize * sizeof *self->bucket);
+    IBHashTable *self = IB_xmalloc(sizeof *self + htsize * sizeof *self->bucket);
     memset(self, 0, sizeof *self + htsize * sizeof *self->bucket);
     self->bits = bits;
     return self;
 }
 
-SOEXPORT void HashTable_set(HashTable *self, const char *key,
+SOEXPORT void IBHashTable_set(IBHashTable *self, const char *key,
 	void *obj, void (*deleter)(void *))
 {
     uint8_t h = hashstr(key, self->bits);
-    HashTableEntry *parent = 0;
-    HashTableEntry *entry = self->bucket[h];
+    IBHashTableEntry *parent = 0;
+    IBHashTableEntry *entry = self->bucket[h];
     while (entry)
     {
 	if (!strcmp(entry->key, key)) break;
@@ -75,11 +75,11 @@ SOEXPORT void HashTable_set(HashTable *self, const char *key,
     }
 }
 
-SOEXPORT int HashTable_delete(HashTable *self, const char *key)
+SOEXPORT int IBHashTable_delete(IBHashTable *self, const char *key)
 {
     uint8_t h = hashstr(key, self->bits);
-    HashTableEntry *parent = 0;
-    HashTableEntry *entry = self->bucket[h];
+    IBHashTableEntry *parent = 0;
+    IBHashTableEntry *entry = self->bucket[h];
     while (entry)
     {
 	if (!strcmp(entry->key, key)) break;
@@ -99,14 +99,14 @@ SOEXPORT int HashTable_delete(HashTable *self, const char *key)
     return 0;
 }
 
-SOEXPORT size_t HashTable_count(const HashTable *self)
+SOEXPORT size_t IBHashTable_count(const IBHashTable *self)
 {
     return self->count;
 }
 
-SOEXPORT void *HashTable_get(const HashTable *self, const char *key)
+SOEXPORT void *IBHashTable_get(const IBHashTable *self, const char *key)
 {
-    HashTableEntry *entry = self->bucket[hashstr(key, self->bits)];
+    IBHashTableEntry *entry = self->bucket[hashstr(key, self->bits)];
     while (entry)
     {
 	if (!strcmp(entry->key, key)) return entry->obj;
@@ -115,16 +115,16 @@ SOEXPORT void *HashTable_get(const HashTable *self, const char *key)
     return 0;
 }
 
-SOEXPORT HashTableIterator *HashTable_iterator(const HashTable *self)
+SOEXPORT IBHashTableIterator *IBHashTable_iterator(const IBHashTable *self)
 {
-    HashTableIterator *iter = IB_xmalloc(
+    IBHashTableIterator *iter = IB_xmalloc(
 	    sizeof *iter + self->count * sizeof *iter->entries);
     iter->count = self->count;
     iter->pos = self->count;
     size_t pos = 0;
     for (unsigned h = 0; h < HT_SIZE(self->bits); ++h)
     {
-	HashTableEntry *entry = self->bucket[h];
+	IBHashTableEntry *entry = self->bucket[h];
 	while (entry)
 	{
 	    iter->entries[pos].key = entry->key;
@@ -136,13 +136,13 @@ SOEXPORT HashTableIterator *HashTable_iterator(const HashTable *self)
     return iter;
 }
 
-SOEXPORT void HashTable_destroy(HashTable *self)
+SOEXPORT void IBHashTable_destroy(IBHashTable *self)
 {
     if (!self) return;
     for (unsigned h = 0; h < HT_SIZE(self->bits); ++h)
     {
-	HashTableEntry *entry = self->bucket[h];
-	HashTableEntry *next;
+	IBHashTableEntry *entry = self->bucket[h];
+	IBHashTableEntry *next;
 	while (entry)
 	{
 	    next = entry->next;
@@ -155,26 +155,26 @@ SOEXPORT void HashTable_destroy(HashTable *self)
     free(self);
 }
 
-SOEXPORT int HashTableIterator_moveNext(HashTableIterator *self)
+SOEXPORT int IBHashTableIterator_moveNext(IBHashTableIterator *self)
 {
     if (self->pos >= self->count) self->pos = 0;
     else ++self->pos;
     return self->pos < self->count;
 }
 
-SOEXPORT const char *HashTableIterator_key(const HashTableIterator *self)
+SOEXPORT const char *IBHashTableIterator_key(const IBHashTableIterator *self)
 {
     if (self->pos >= self->count) return 0;
     return self->entries[self->pos].key;
 }
 
-SOEXPORT void *HashTableIterator_current(const HashTableIterator *self)
+SOEXPORT void *IBHashTableIterator_current(const IBHashTableIterator *self)
 {
     if (self->pos >= self->count) return 0;
     return self->entries[self->pos].obj;
 }
 
-SOEXPORT void HashTableIterator_destroy(HashTableIterator *self)
+SOEXPORT void IBHashTableIterator_destroy(IBHashTableIterator *self)
 {
     free(self);
 }

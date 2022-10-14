@@ -277,7 +277,7 @@ static void msgReceived(void *receiver, void *sender, void *args)
     const char *to = IBList_at(params, 0);
     const char *message = IBList_at(params, 1);
 
-    IrcChannel *channel = HashTable_get(IrcServer_channels(server), to);
+    IrcChannel *channel = IBHashTable_get(IrcServer_channels(server), to);
 
     if (message[0] == '!' || !channel)
     {
@@ -532,7 +532,7 @@ SOEXPORT const IrcServer *IrcBotEvent_server(const IrcBotEvent *self)
 
 SOEXPORT const IrcChannel *IrcBotEvent_channel(const IrcBotEvent *self)
 {
-    return HashTable_get(IrcServer_channels(self->server), self->origin);
+    return IBHashTable_get(IrcServer_channels(self->server), self->origin);
 }
 
 SOEXPORT const char *IrcBotEvent_origin(const IrcBotEvent *self)

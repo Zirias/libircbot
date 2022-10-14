@@ -34,7 +34,7 @@ struct IrcServer {
     char *nick;
     const char *user;
     const char *realname;
-    HashTable *channels;
+    IBHashTable *channels;
     Connection *conn;
     IBQueue *sendQueue;
     Event *connected;
@@ -81,7 +81,7 @@ SOEXPORT IrcServer *IrcServer_create(const char *id,
     self->nick = IB_copystr(nick);
     self->user = user;
     self->realname = realname;
-    self->channels = HashTable_create(6);
+    self->channels = IBHashTable_create(6);
     self->conn = 0;
     self->sendQueue = 0;
     self->connected = Event_create(self);
@@ -331,7 +331,7 @@ static void chanFailed(void *receiver, void *sender, void *args)
     Event_unregister(IrcChannel_parted(chan), self, chanParted, 0);
     Event_unregister(IrcChannel_failed(chan), self, chanFailed, 0);
     IrcChannel_destroy(chan);
-    HashTable_delete(self->channels, channel);
+    IBHashTable_delete(self->channels, channel);
 }
 
 static void sendRaw(IrcServer *self, const char *command)
@@ -417,7 +417,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 			"!") == strlen(self->nick))
 	    {
 		const char *chan = IBList_at(params, 0);
-		if (!HashTable_get(self->channels, chan))
+		if (!IBHashTable_get(self->channels, chan))
 		{
 		    IrcChannel *channel = IrcChannel_create(self,
 			    IBList_at(params, 0));
@@ -427,7 +427,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 			    chanParted, 0);
 		    Event_register(IrcChannel_failed(channel), self,
 			    chanFailed, 0);
-		    HashTable_set(self->channels, chan,
+		    IBHashTable_set(self->channels, chan,
 			    channel, destroyIrcChannel);
 		}
 	    }
@@ -473,7 +473,7 @@ SOEXPORT const char *IrcServer_nick(const IrcServer *self)
     return self->nick;
 }
 
-SOEXPORT const HashTable *IrcServer_channels(const IrcServer *self)
+SOEXPORT const IBHashTable *IrcServer_channels(const IrcServer *self)
 {
     return self->channels;
 }
@@ -493,21 +493,21 @@ SOLOCAL void IrcServer_setNick(IrcServer *self, const char *nick)
 
 SOLOCAL void IrcServer_join(IrcServer *self, const char *channel)
 {
-    IrcChannel *chan = HashTable_get(self->channels, channel);
+    IrcChannel *chan = IBHashTable_get(self->channels, channel);
     if (!chan)
     {
 	chan = IrcChannel_create(self, channel);
 	Event_register(IrcChannel_joined(chan), self, chanJoined, 0);
 	Event_register(IrcChannel_parted(chan), self, chanParted, 0);
 	Event_register(IrcChannel_failed(chan), self, chanFailed, 0);
-	HashTable_set(self->channels, channel, chan, destroyIrcChannel);
+	IBHashTable_set(self->channels, channel, chan, destroyIrcChannel);
     }
     IrcChannel_join(chan);
 }
 
 SOLOCAL void IrcServer_part(IrcServer *self, const char *channel)
 {
-    IrcChannel *chan = HashTable_get(self->channels, channel);
+    IrcChannel *chan = IBHashTable_get(self->channels, channel);
     if (chan)
     {
 	IrcChannel_part(chan);
@@ -515,7 +515,7 @@ SOLOCAL void IrcServer_part(IrcServer *self, const char *channel)
 	Event_unregister(IrcChannel_parted(chan), self, chanParted, 0);
 	Event_unregister(IrcChannel_failed(chan), self, chanFailed, 0);
 	IrcChannel_destroy(chan);
-	HashTable_delete(self->channels, channel);
+	IBHashTable_delete(self->channels, channel);
     }
 }
 
@@ -598,7 +598,7 @@ SOEXPORT void IrcServer_destroy(IrcServer *self)
     Event_destroy(self->msgReceived);
     Event_destroy(self->joined);
     Event_destroy(self->parted);
-    HashTable_destroy(self->channels);
+    IBHashTable_destroy(self->channels);
     free(self->sendcmd);
     free(self->name);
     free(self->nick);

@@ -18,7 +18,7 @@ struct IrcChannel
 {
     char *name;
     IrcServer *server;
-    HashTable *nicks;
+    IBHashTable *nicks;
     Event *joined;
     Event *parted;
     Event *entered;
@@ -41,7 +41,7 @@ SOLOCAL IrcChannel *IrcChannel_create(IrcServer *server, const char *name)
     IrcChannel *self = IB_xmalloc(sizeof *self);
     self->name = IB_copystr(name);
     self->server = server;
-    self->nicks = HashTable_create(8);
+    self->nicks = IBHashTable_create(8);
     self->joined = Event_create(self);
     self->parted = Event_create(self);
     self->entered = Event_create(self);
@@ -78,7 +78,7 @@ SOEXPORT int IrcChannel_isJoined(const IrcChannel *self)
     return self->isJoined;
 }
 
-SOEXPORT const HashTable *IrcChannel_nicks(const IrcChannel *self)
+SOEXPORT const IBHashTable *IrcChannel_nicks(const IrcChannel *self)
 {
     return self->nicks;
 }
@@ -205,7 +205,7 @@ static void handleMsg(void *receiver, void *sender, void *args)
 		sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
 		if (strcmp(buf, IrcServer_nick(self->server)))
 		{
-		    HashTable_set(self->nicks, buf, self->name, 0);
+		    IBHashTable_set(self->nicks, buf, self->name, 0);
 		    Event_raise(self->entered, 0, buf);
 		}
 	    }
@@ -217,7 +217,7 @@ static void handleMsg(void *receiver, void *sender, void *args)
 	    ATTR_FALLTHROUGH;
 	case MSG_QUIT:
 	    sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
-	    if (HashTable_delete(self->nicks, buf))
+	    if (IBHashTable_delete(self->nicks, buf))
 	    {
 		Event_raise(self->left, 0, buf);
 	    }
@@ -227,9 +227,9 @@ static void handleMsg(void *receiver, void *sender, void *args)
 	    if (IBList_size(params) == 1)
 	    {
 		sscanf(IrcMessage_prefix(msg), "%127[^!]", buf);
-		if (HashTable_delete(self->nicks, buf))
+		if (IBHashTable_delete(self->nicks, buf))
 		{
-		    HashTable_set(self->nicks, IBList_at(params, 0),
+		    IBHashTable_set(self->nicks, IBList_at(params, 0),
 			    self->name, 0);
 		}
 	    }
@@ -250,7 +250,7 @@ static void handleMsg(void *receiver, void *sender, void *args)
 		    }
 		    Event_raise(self->parted, 0, 0);
 		}
-		else if (HashTable_delete(self->nicks, nick))
+		else if (IBHashTable_delete(self->nicks, nick))
 		{
 		    char *ea = IB_copystr(nick);
 		    Event_raise(self->left, 0, ea);
@@ -272,7 +272,7 @@ static void handleMsg(void *receiver, void *sender, void *args)
 				    && *nick != '@') || *++nick)
 			    && strcmp(nick, IrcServer_nick(self->server)))
 		    {
-			HashTable_set(self->nicks, nick, self->name, 0);
+			IBHashTable_set(self->nicks, nick, self->name, 0);
 		    }
 		    nick = strsep(&i, " ");
 		}
@@ -350,7 +350,7 @@ SOLOCAL void IrcChannel_destroy(IrcChannel *self)
     Event_destroy(self->entered);
     Event_destroy(self->parted);
     Event_destroy(self->joined);
-    HashTable_destroy(self->nicks);
+    IBHashTable_destroy(self->nicks);
     free(self->name);
     free(self);
 }

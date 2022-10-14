@@ -6,28 +6,28 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct HashTable HashTable;
-typedef struct HashTableIterator HashTableIterator;
+C_CLASS_DECL(IBHashTable);
+C_CLASS_DECL(IBHashTableIterator);
 
-DECLEXPORT HashTable *HashTable_create(uint8_t bits)
+DECLEXPORT IBHashTable *IBHashTable_create(uint8_t bits)
     ATTR_RETNONNULL; // bits: [2..8]
-DECLEXPORT void HashTable_set(HashTable *self, const char *key,
+DECLEXPORT void IBHashTable_set(IBHashTable *self, const char *key,
 	void *obj, void (*deleter)(void *))
     CMETHOD ATTR_NONNULL((2)) ATTR_NONNULL((3));
-DECLEXPORT int HashTable_delete(HashTable *self, const char *key)
+DECLEXPORT int IBHashTable_delete(IBHashTable *self, const char *key)
     CMETHOD ATTR_NONNULL((2));
-DECLEXPORT size_t HashTable_count(const HashTable *self) CMETHOD ATTR_PURE;
-DECLEXPORT void *HashTable_get(const HashTable *self, const char *key)
+DECLEXPORT size_t IBHashTable_count(const IBHashTable *self) CMETHOD ATTR_PURE;
+DECLEXPORT void *IBHashTable_get(const IBHashTable *self, const char *key)
     CMETHOD ATTR_NONNULL((2));
-DECLEXPORT HashTableIterator *HashTable_iterator(const HashTable *self)
+DECLEXPORT IBHashTableIterator *IBHashTable_iterator(const IBHashTable *self)
     CMETHOD ATTR_RETNONNULL;
-DECLEXPORT void HashTable_destroy(HashTable *self);
+DECLEXPORT void IBHashTable_destroy(IBHashTable *self);
 
-DECLEXPORT int HashTableIterator_moveNext(HashTableIterator *self) CMETHOD;
-DECLEXPORT const char *HashTableIterator_key(const HashTableIterator *self)
+DECLEXPORT int IBHashTableIterator_moveNext(IBHashTableIterator *self) CMETHOD;
+DECLEXPORT const char *IBHashTableIterator_key(const IBHashTableIterator *self)
     CMETHOD ATTR_PURE;
-DECLEXPORT void *HashTableIterator_current(const HashTableIterator *self)
+DECLEXPORT void *IBHashTableIterator_current(const IBHashTableIterator *self)
     CMETHOD ATTR_PURE;
-DECLEXPORT void HashTableIterator_destroy(HashTableIterator *self);
+DECLEXPORT void IBHashTableIterator_destroy(IBHashTableIterator *self);
 
 #endif
