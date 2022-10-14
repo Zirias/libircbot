@@ -4,8 +4,6 @@
 #include <ircbot/decl.h>
 #include <ircbot/irccommand.h>
 
-#include <stdint.h>
-
 C_CLASS_DECL(IrcMessage);
 C_CLASS_DECL(IBList);
 
