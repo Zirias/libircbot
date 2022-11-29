@@ -211,6 +211,7 @@ static void dowrite(Connection *self)
 		IBLog_fmt(L_WARNING, "connection: error writing to %s",
 			Connection_remoteAddr(self));
 		Connection_close(self);
+		return;
 	    }
 	}
 	wantreadwrite(self);
@@ -327,7 +328,6 @@ static void doread(Connection *self)
 		IBLog_fmt(L_DEBUG, "connection: blocking reads from %s",
 			Connection_remoteAddr(self));
 	    }
-	    wantreadwrite(self);
 	}
 	else
 	{
@@ -341,8 +341,10 @@ static void doread(Connection *self)
 		IBLog_fmt(L_WARNING, "connection: error reading from %s",
 			Connection_remoteAddr(self));
 		Connection_close(self);
+		return;
 	    }
 	}
+	wantreadwrite(self);
     }
     else
     {
