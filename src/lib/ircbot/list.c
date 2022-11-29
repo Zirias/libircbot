@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #include <ircbot/list.h>
 
 #include "util.h"

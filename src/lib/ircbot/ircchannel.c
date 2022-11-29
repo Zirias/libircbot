@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #include <ircbot/hashtable.h>
 #include <ircbot/irccommand.h>
 

@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #include <ircbot/irccommand.h>
 #include <ircbot/list.h>
 #include <ircbot/log.h>
