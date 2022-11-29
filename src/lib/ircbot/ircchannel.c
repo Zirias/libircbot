@@ -1,3 +1,6 @@
+#ifdef __linux__
+#define _DEFAULT_SOURCE /* strsep(): this is needed with glibc on linux */
+#endif
 #include <ircbot/hashtable.h>
 #include <ircbot/irccommand.h>
 
