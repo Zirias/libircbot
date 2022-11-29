@@ -30,6 +30,7 @@ struct IrcServer {
     const char *id;
     const char *remotehost;
     int port;
+    int tls;
     char *name;
     char *nick;
     const char *user;
@@ -70,13 +71,14 @@ static void sendRawCmd(IrcServer *self, IrcCommand cmd, const char *args);
 static void handleMessage(IrcServer *self, const IrcMessage *msg);
 
 SOEXPORT IrcServer *IrcServer_create(const char *id,
-	const char *remotehost, int port,
+	const char *remotehost, int port, int tls,
 	const char *nick, const char *user, const char *realname)
 {
     IrcServer *self = IB_xmalloc(sizeof *self);
     self->id = id;
     self->remotehost = remotehost;
     self->port = port;
+    self->tls = tls;
     self->name = 0;
     self->nick = IB_copystr(nick);
     self->user = user;
@@ -443,7 +445,8 @@ SOLOCAL int IrcServer_connect(IrcServer *self)
 {
     if (self->conn) return 0;
     IBLog_msg(L_DEBUG, "IrcServer: initiating TCP connection");
-    self->conn = Connection_createTcpClient(self->remotehost, self->port, 1);
+    self->conn = Connection_createTcpClient(self->remotehost, self->port,
+	    1, self->tls);
     if (!self->conn) return -1;
     Event_register(Connection_connected(self->conn), self, connConnected, 0);
     Event_register(Connection_closed(self->conn), self, connClosed, 0);

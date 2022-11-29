@@ -17,6 +17,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#ifdef WITH_TLS
+#include <openssl/ssl.h>
+#endif
+
 #define CONNBUFSZ 4096
 #define NWRITERECS 16
 #define CONNTICKS 6
@@ -51,6 +55,10 @@ typedef struct Connection
     Event *dataReceived;
     Event *dataSent;
     ThreadJob *resolveJob;
+#ifdef WITH_TLS
+    SSL_CTX *tls_ctx;
+    SSL *tls;
+#endif
     char *addr;
     char *name;
     void *data;
@@ -60,6 +68,11 @@ typedef struct Connection
     RemoteAddrResolveArgs resolveArgs;
     int fd;
     int connecting;
+#ifdef WITH_TLS
+    int tls_connect_st;
+    int tls_read_st;
+    int tls_write_st;
+#endif
     uint8_t deleteScheduled;
     uint8_t nrecs;
     uint8_t baserecidx;
@@ -67,8 +80,14 @@ typedef struct Connection
 } Connection;
 
 static void checkPendingConnection(void *receiver, void *sender, void *args);
+static void wantreadwrite(Connection *self) CMETHOD;
+#ifdef WITH_TLS
+static void dohandshake(Connection *self) CMETHOD;
+#endif
+static void dowrite(Connection *self) CMETHOD;
 static void deleteConnection(void *receiver, void *sender, void *args);
 static void deleteLater(Connection *self);
+static void doread(Connection *self) CMETHOD;
 static void readConnection(void *receiver, void *sender, void *args);
 static void resolveRemoteAddrFinished(
 	void *receiver, void *sender, void *args);
@@ -88,6 +107,151 @@ static void checkPendingConnection(void *receiver, void *sender, void *args)
 	Service_unregisterWrite(self->fd);
 	Connection_close(self);
     }
+}
+
+static void wantreadwrite(Connection *self)
+{
+    if (self->connecting ||
+#ifdef WITH_TLS
+	    self->tls_connect_st == SSL_ERROR_WANT_WRITE ||
+	    self->tls_read_st == SSL_ERROR_WANT_WRITE ||
+	    self->tls_write_st == SSL_ERROR_WANT_WRITE ||
+#endif
+	    self->nrecs)
+    {
+	Service_registerWrite(self->fd);
+    }
+    else
+    {
+	Service_unregisterWrite(self->fd);
+    }
+
+    if (
+#ifdef WITH_TLS
+	    self->tls_connect_st == SSL_ERROR_WANT_READ ||
+	    self->tls_read_st == SSL_ERROR_WANT_READ ||
+	    self->tls_write_st == SSL_ERROR_WANT_READ ||
+#endif
+	    !self->args.handling)
+    {
+	Service_registerRead(self->fd);
+    }
+    else
+    {
+	Service_unregisterRead(self->fd);
+    }
+}
+
+#ifdef WITH_TLS
+static void dohandshake(Connection *self)
+{
+    int rc = SSL_connect(self->tls);
+    if (rc > 0)
+    {
+	self->tls_connect_st = 0;
+	IBLog_fmt(L_DEBUG, "connection: connected to %s",
+		Connection_remoteAddr(self));
+	Event_raise(self->connected, 0, 0);
+    }
+    else
+    {
+	rc = SSL_get_error(self->tls, rc);
+	if (rc == SSL_ERROR_WANT_READ || rc == SSL_ERROR_WANT_WRITE)
+	{
+	    self->tls_connect_st = rc;
+	}
+	else
+	{
+	    IBLog_fmt(L_ERROR, "connection: TLS handshake failed with %s",
+		    Connection_remoteAddr(self));
+	    Connection_close(self);
+	    return;
+	}
+    }
+    wantreadwrite(self);
+}
+#endif
+
+static void dowrite(Connection *self)
+{
+    WriteRecord *rec = self->writerecs + self->baserecidx;
+    void *id = 0;
+#ifdef WITH_TLS
+    if (self->tls)
+    {
+	size_t writesz = 0;
+	int rc = SSL_write_ex(self->tls, rec->wrbuf + rec->wrbufpos,
+		rec->wrbuflen - rec->wrbufpos, &writesz);
+	if (rc > 0)
+	{
+	    self->tls_write_st = 0;
+	    if (writesz < rec->wrbuflen - rec->wrbufpos)
+	    {
+		rec->wrbufpos += writesz;
+		wantreadwrite(self);
+		return;
+	    }
+	    else id = rec->id;
+	    if (++self->baserecidx == NWRITERECS) self->baserecidx = 0;
+	    --self->nrecs;
+	    if (id)
+	    {
+		Event_raise(self->dataSent, 0, id);
+	    }
+	}
+	else
+	{
+	    rc = SSL_get_error(self->tls, rc);
+	    if (rc == SSL_ERROR_WANT_READ || rc == SSL_ERROR_WANT_WRITE)
+	    {
+		self->tls_write_st = rc;
+	    }
+	    else
+	    {
+		IBLog_fmt(L_WARNING, "connection: error writing to %s",
+			Connection_remoteAddr(self));
+		Connection_close(self);
+	    }
+	}
+	wantreadwrite(self);
+    }
+    else
+    {
+#endif
+	errno = 0;
+	int rc = write(self->fd, rec->wrbuf + rec->wrbufpos,
+		rec->wrbuflen - rec->wrbufpos);
+	if (rc >= 0)
+	{
+	    if (rc < rec->wrbuflen - rec->wrbufpos)
+	    {
+		rec->wrbufpos += rc;
+		return;
+	    }
+	    else id = rec->id;
+	    if (++self->baserecidx == NWRITERECS) self->baserecidx = 0;
+	    --self->nrecs;
+	    wantreadwrite(self);
+	    if (id)
+	    {
+		Event_raise(self->dataSent, 0, id);
+	    }
+	}
+	else if (errno == EWOULDBLOCK || errno == EAGAIN)
+	{
+	    IBLog_fmt(L_INFO, "connection: not ready for writing to %s",
+		    Connection_remoteAddr(self));
+	    return;
+	}
+	else
+	{
+	    IBLog_fmt(L_WARNING, "connection: error writing to %s",
+		    Connection_remoteAddr(self));
+	    Connection_close(self);
+	}
+#ifdef WITH_TLS
+    }
+#endif
 }
 
 static void writeConnection(void *receiver, void *sender, void *args)
@@ -110,8 +274,14 @@ static void writeConnection(void *receiver, void *sender, void *args)
 	    return;
 	}
 	self->connecting = 0;
-	Service_registerRead(self->fd);
-	if (!self->nrecs) Service_unregisterWrite(self->fd);
+#ifdef WITH_TLS
+	if (self->tls)
+	{
+	    dohandshake(self);
+	    return;
+	}
+#endif
+	wantreadwrite(self);
 	IBLog_fmt(L_DEBUG, "connection: connected to %s",
 		Connection_remoteAddr(self));
 	Event_raise(self->connected, 0, 0);
@@ -119,48 +289,94 @@ static void writeConnection(void *receiver, void *sender, void *args)
     }
     IBLog_fmt(L_DEBUG, "connection: ready to write to %s",
 	Connection_remoteAddr(self));
-    if (!self->nrecs)
+#ifdef WITH_TLS
+    if (self->tls_connect_st == SSL_ERROR_WANT_WRITE) dohandshake(self);
+    else if (self->tls_read_st == SSL_ERROR_WANT_WRITE) doread(self);
+    else if (self->tls_write_st == SSL_ERROR_WANT_WRITE) dowrite(self);
+    else
     {
-	IBLog_fmt(L_ERROR, "connection: ready to send to %s with empty buffer",
-		Connection_remoteAddr(self));
-	Service_unregisterWrite(self->fd);
-	return;
-    }
-    WriteRecord *rec = self->writerecs + self->baserecidx;
-    errno = 0;
-    int rc = write(self->fd, rec->wrbuf + rec->wrbufpos,
-	    rec->wrbuflen - rec->wrbufpos);
-    void *id = 0;
-    if (rc >= 0)
-    {
-	if (rc < rec->wrbuflen - rec->wrbufpos)
+#endif
+	if (!self->nrecs)
 	{
-	    rec->wrbufpos += rc;
+	    IBLog_fmt(L_ERROR,
+		    "connection: ready to send to %s with empty buffer",
+		    Connection_remoteAddr(self));
+	    wantreadwrite(self);
 	    return;
 	}
-	else id = rec->id;
-	if (++self->baserecidx == NWRITERECS) self->baserecidx = 0;
-	if (!--self->nrecs)
-	{
-	    Service_unregisterWrite(self->fd);
-	}
-	if (id)
-	{
-	    Event_raise(self->dataSent, 0, id);
-	}
+	dowrite(self);
+#ifdef WITH_TLS
     }
-    else if (errno == EWOULDBLOCK || errno == EAGAIN)
+#endif
+}
+
+static void doread(Connection *self)
+{
+#ifdef WITH_TLS
+    if (self->tls)
     {
-	IBLog_fmt(L_INFO, "connection: not ready for writing to %s",
-		Connection_remoteAddr(self));
-	return;
+	size_t readsz = 0;
+	int rc = SSL_read_ex(self->tls, self->rdbuf, CONNBUFSZ, &readsz);
+	if (rc > 0)
+	{
+	    self->tls_read_st = 0;
+	    self->args.size = readsz;
+	    Event_raise(self->dataReceived, 0, &self->args);
+	    if (self->args.handling)
+	    {
+		IBLog_fmt(L_DEBUG, "connection: blocking reads from %s",
+			Connection_remoteAddr(self));
+	    }
+	    wantreadwrite(self);
+	}
+	else
+	{
+	    rc = SSL_get_error(self->tls, rc);
+	    if (rc == SSL_ERROR_WANT_READ || rc == SSL_ERROR_WANT_WRITE)
+	    {
+		self->tls_read_st = rc;
+	    }
+	    else
+	    {
+		IBLog_fmt(L_WARNING, "connection: error reading from %s",
+			Connection_remoteAddr(self));
+		Connection_close(self);
+	    }
+	}
     }
     else
     {
-	IBLog_fmt(L_WARNING, "connection: error writing to %s",
-		Connection_remoteAddr(self));
-	Connection_close(self);
+#endif
+	errno = 0;
+	int rc = read(self->fd, self->rdbuf, CONNBUFSZ);
+	if (rc > 0)
+	{
+	    self->args.size = rc;
+	    Event_raise(self->dataReceived, 0, &self->args);
+	    if (self->args.handling)
+	    {
+		IBLog_fmt(L_DEBUG, "connection: blocking reads from %s",
+			Connection_remoteAddr(self));
+	    }
+	    wantreadwrite(self);
+	}
+	else if (errno == EWOULDBLOCK || errno == EAGAIN)
+	{
+	    IBLog_fmt(L_INFO, "connection: ignoring spurious read from %s",
+		    Connection_remoteAddr(self));
+	}
+	else
+	{
+	    if (rc < 0)
+	    {
+		IBLog_fmt(L_WARNING, "connection: error reading from %s",
+			Connection_remoteAddr(self));
+	    }
+	    Connection_close(self);
+	}
+#ifdef WITH_TLS
     }
+#endif
 }
 
 static void readConnection(void *receiver, void *sender, void *args)
@@ -171,41 +387,25 @@ static void readConnection(void *receiver, void *sender, void *args)
     Connection *self = receiver;
     IBLog_fmt(L_DEBUG, "connection: ready to read from %s",
 	    Connection_remoteAddr(self));
-    if (self->args.handling)
-    {
-	IBLog_fmt(L_WARNING,
-		"connection: new data while read buffer from %s still handled",
-		Connection_remoteAddr(self));
-	return;
-    }
 
-    errno = 0;
-    int rc = read(self->fd, self->rdbuf, CONNBUFSZ);
-    if (rc > 0)
-    {
-	self->args.size = rc;
-	Event_raise(self->dataReceived, 0, &self->args);
-	if (self->args.handling)
-	{
-	    IBLog_fmt(L_DEBUG, "connection: blocking reads from %s",
-		    Connection_remoteAddr(self));
-	    Service_unregisterRead(self->fd);
-	}
-    }
-    else if (errno == EWOULDBLOCK || errno == EAGAIN)
-    {
-	IBLog_fmt(L_INFO, "connection: ignoring spurious read from %s",
-		Connection_remoteAddr(self));
-    }
+#ifdef WITH_TLS
+    if (self->tls_connect_st == SSL_ERROR_WANT_READ) dohandshake(self);
+    else if (self->tls_read_st == SSL_ERROR_WANT_READ) doread(self);
+    else if (self->tls_write_st == SSL_ERROR_WANT_READ) dowrite(self);
     else
     {
-	if (rc < 0)
+#endif
+	if (self->args.handling)
 	{
-	    IBLog_fmt(L_WARNING, "connection: error reading from %s",
-		    Connection_remoteAddr(self));
+	    IBLog_fmt(L_WARNING,
+		    "connection: new data while read buffer from %s "
+		    "still handled", Connection_remoteAddr(self));
+	    return;
 	}
-	Connection_close(self);
+	doread(self);
+#ifdef WITH_TLS
     }
+#endif
 }
 
 static void deleteConnection(void *receiver, void *sender, void *args)
@@ -218,8 +418,13 @@ static void deleteConnection(void *receiver, void *sender, void *args)
     Connection_destroy(self);
 }
 
-SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode)
+SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode,
+	int tls)
 {
+#ifndef WITH_TLS
+    (void) tls;
+#endif
+
     Connection *self = IB_xmalloc(sizeof *self);
     self->connected = Event_create(self);
     self->closed = Event_create(self);
@@ -232,6 +437,22 @@ SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode)
     self->name = 0;
     self->data = 0;
     self->deleter = 0;
+#ifdef WITH_TLS
+    if (tls)
+    {
+	self->tls_ctx = SSL_CTX_new(TLS_client_method());
+	self->tls = SSL_new(self->tls_ctx);
+	SSL_set_fd(self->tls, fd);
+    }
+    else
+    {
+	self->tls_ctx = 0;
+	self->tls = 0;
+    }
+    self->tls_connect_st = 0;
+    self->tls_read_st = 0;
+    self->tls_write_st = 0;
+#endif
     self->args.buf = self->rdbuf;
     self->args.handling = 0;
     self->deleteScheduled = 0;
@@ -360,7 +581,7 @@ SOLOCAL int Connection_write(Connection *self,
     rec->wrbufpos = 0;
     rec->wrbuf = buf;
     rec->id = id;
-    Service_registerWrite(self->fd);
+    wantreadwrite(self);
     return 0;
 }
 
@@ -369,7 +590,7 @@ SOLOCAL void Connection_activate(Connection *self)
     if (self->args.handling) return;
     IBLog_fmt(L_DEBUG, "connection: unblocking reads from %s",
 	    Connection_remoteAddr(self));
-    Service_registerRead(self->fd);
+    wantreadwrite(self);
 }
 
 SOLOCAL int Connection_confirmDataReceived(Connection *self)
@@ -434,6 +655,10 @@ SOLOCAL void Connection_destroy(Connection *self)
     {
 	close(self->fd);
     }
+#ifdef WITH_TLS
+    SSL_free(self->tls);
+    SSL_CTX_free(self->tls_ctx);
+#endif
     Event_unregister(Service_tick(), self, checkPendingConnection, 0);
     Event_unregister(Service_readyRead(), self, readConnection, self->fd);
     Event_unregister(Service_readyWrite(), self, writeConnection, self->fd);

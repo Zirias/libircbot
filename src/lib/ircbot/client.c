@@ -15,8 +15,15 @@
 #include <unistd.h>
 
 SOLOCAL Connection *Connection_createTcpClient(const char *remotehost,
-	int port, int numerichosts)
+	int port, int numerichosts, int tls)
 {
+#ifndef WITH_TLS
+    if (tls)
+    {
+	IBLog_msg(L_FATAL, "client: TLS connections not supported");
+	return 0;
+    }
+#endif
     struct addrinfo hints;
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
@@ -52,7 +59,7 @@ SOLOCAL Connection *Connection_createTcpClient(const char *remotehost,
 	IBLog_fmt(L_ERROR, "client: cannot connect to `%s'", remotehost);
 	return 0;
     }
-    Connection *conn = Connection_create(fd, CCM_CONNECTING);
+    Connection *conn = Connection_create(fd, CCM_CONNECTING, tls);
     Connection_setRemoteAddr(conn, res->ai_addr, res->ai_addrlen,
 	    numerichosts);
     freeaddrinfo(res0);

@@ -6,6 +6,6 @@
 C_CLASS_DECL(Connection);
 
 Connection *Connection_createTcpClient(const char *remotehost, int port,
-	int numerichosts) ATTR_NONNULL((1));
+	int numerichosts, int tls) ATTR_NONNULL((1));
 
 #endif
