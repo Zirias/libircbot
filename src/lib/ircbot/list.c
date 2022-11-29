@@ -1,6 +1,4 @@
-#ifdef __linux__
-#define _DEFAULT_SOURCE /* strsep(): this is needed with glibc on linux */
-#endif
+#define _DEFAULT_SOURCE
 #include <ircbot/list.h>
 
 #include "util.h"
