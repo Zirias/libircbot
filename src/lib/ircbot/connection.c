@@ -48,6 +48,11 @@ typedef struct RemoteAddrResolveArgs
     char name[NI_MAXHOST];
 } RemoteAddrResolveArgs;
 
+#ifdef WITH_TLS
+static SSL_CTX *tls_ctx = 0;
+static int tls_nconn = 0;
+#endif
+
 typedef struct Connection
 {
     Event *connected;
@@ -56,7 +61,6 @@ typedef struct Connection
     Event *dataSent;
     ThreadJob *resolveJob;
 #ifdef WITH_TLS
-    SSL_CTX *tls_ctx;
     SSL *tls;
 #endif
     char *addr;
@@ -70,6 +74,7 @@ typedef struct Connection
     int connecting;
 #ifdef WITH_TLS
     int tls_connect_st;
+    int tls_connect_ticks;
     int tls_read_st;
     int tls_write_st;
 #endif
@@ -82,6 +87,7 @@ typedef struct Connection
 static void checkPendingConnection(void *receiver, void *sender, void *args);
 static void wantreadwrite(Connection *self) CMETHOD;
 #ifdef WITH_TLS
+static void checkPendingTls(void *receiver, void *sender, void *args);
 static void dohandshake(Connection *self) CMETHOD;
 #endif
 static void dowrite(Connection *self) CMETHOD;
@@ -143,6 +149,20 @@ static void wantreadwrite(Connection *self)
 }
 
 #ifdef WITH_TLS
+static void checkPendingTls(void *receiver, void *sender, void *args)
+{
+    (void)sender;
+    (void)args;
+
+    Connection *self = receiver;
+    if (self->tls_connect_ticks && !--self->tls_connect_ticks)
+    {
+	IBLog_fmt(L_INFO, "connection: TLS handshake timeout with %s",
+		Connection_remoteAddr(self));
+	Connection_close(self);
+    }
+}
+
 static void dohandshake(Connection *self)
 {
     int rc = SSL_connect(self->tls);
@@ -151,6 +171,8 @@ static void dohandshake(Connection *self)
 	self->tls_connect_st = 0;
 	IBLog_fmt(L_DEBUG, "connection: connected to %s",
 		Connection_remoteAddr(self));
+	Event_unregister(Service_tick(), self, checkPendingTls, 0);
+	self->tls_connect_ticks = 0;
 	Event_raise(self->connected, 0, 0);
     }
     else
@@ -164,6 +186,7 @@ static void dohandshake(Connection *self)
 	{
 	    IBLog_fmt(L_ERROR, "connection: TLS handshake failed with %s",
 		    Connection_remoteAddr(self));
+	    Event_unregister(Service_tick(), self, checkPendingTls, 0);
 	    Connection_close(self);
 	    return;
 	}
@@ -278,6 +301,8 @@ static void writeConnection(void *receiver, void *sender, void *args)
 #ifdef WITH_TLS
 	if (self->tls)
 	{
+	    self->tls_connect_ticks = CONNTICKS;
+	    Event_register(Service_tick(), self, checkPendingTls, 0);
 	    dohandshake(self);
 	    return;
 	}
@@ -442,13 +467,13 @@ SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode,
 #ifdef WITH_TLS
     if (tls)
     {
-	self->tls_ctx = SSL_CTX_new(TLS_client_method());
-	self->tls = SSL_new(self->tls_ctx);
+	if (!tls_ctx) tls_ctx = SSL_CTX_new(TLS_client_method());
+	++tls_nconn;
+	self->tls = SSL_new(tls_ctx);
 	SSL_set_fd(self->tls, fd);
     }
     else
     {
-	self->tls_ctx = 0;
 	self->tls = 0;
     }
     self->tls_connect_st = 0;
@@ -605,7 +630,13 @@ SOLOCAL int Connection_confirmDataReceived(Connection *self)
 
 SOLOCAL void Connection_close(Connection *self)
 {
-    Event_raise(self->closed, 0, 0);
+#ifdef WITH_TLS
+    if (self->tls && !self->connecting && !self->tls_connect_st)
+    {
+	SSL_shutdown(self->tls);
+    }
+#endif
+    Event_raise(self->closed, 0, self->connecting ? 0 : self);
     deleteLater(self);
 }
 
@@ -659,7 +690,12 @@ SOLOCAL void Connection_destroy(Connection *self)
     }
 #ifdef WITH_TLS
     SSL_free(self->tls);
-    SSL_CTX_free(self->tls_ctx);
+    if (tls_nconn && !--tls_nconn)
+    {
+	SSL_CTX_free(tls_ctx);
+	tls_ctx = 0;
+    }
+    Event_unregister(Service_tick(), self, checkPendingTls, 0);
 #endif
     Event_unregister(Service_tick(), self, checkPendingConnection, 0);
     Event_unregister(Service_readyRead(), self, readConnection, self->fd);

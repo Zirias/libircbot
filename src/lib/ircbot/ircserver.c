@@ -123,12 +123,11 @@ static void connClosed(void *receiver, void *sender, void *args)
 {
     IrcServer *self = receiver;
     Connection *conn = sender;
-    (void) args;
 
     if (conn == self->conn)
     {
 	self->conn = 0;
-	self->reconnticks = self->connst ? QUICKRECONNTICKS : RECONNTICKS;
+	self->reconnticks = args ? QUICKRECONNTICKS : RECONNTICKS;
 	self->connst = 0;
 	IBQueue_destroy(self->sendQueue);
 	self->sendQueue = 0;
