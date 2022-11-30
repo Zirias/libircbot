@@ -2,9 +2,17 @@
 
 This is a library providing a framework for implementing an IRC bot in C.
 
-So far, it is only suitable for pure "fun" bots. It doesn't offer TLS, managing
+So far, it is only suitable for pure "fun" bots. It doesn't offer managing
 channel or user modes, authenticating with services and any of that. It *does*
 offer reacting on typical bot commands, other PRIVMSGs, channel joins etc.
+
+TLS is available by adding `WITH_TLS=1` for building. This requires OpenSSL
+(or a compatible library). You can do for example:
+
+    make WITH_TLS=1
+    make WITH_TLS=1 install
+
+Any value other than `0`, `no`, `off` or `false` will enable TLS support.
 
 ## Quick start
 

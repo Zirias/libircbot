@@ -35,7 +35,7 @@ ircbot_V_MAJ:=			1
 ircbot_V_MIN:=			0
 ircbot_V_REV:=			0
 
-ifeq ($(TLS),yes)
+ifeq ($(WITH_TLS),1)
 ircbot_PKGDEPS:=		libssl
 ircbot_DEFINES:=		-DWITH_TLS
 endif

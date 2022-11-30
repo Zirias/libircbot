@@ -1,4 +1,4 @@
-SINGLECONFVARS= TLS
+BOOLCONFVARS= WITH_TLS
 include zimk/zimk.mk
 
 INCLUDES += -I.$(PSEP)include
