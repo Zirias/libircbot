@@ -5,6 +5,7 @@
 #include <ircbot/queue.h>
 
 #include "client.h"
+#include "clientopts.h"
 #include "connection.h"
 #include "event.h"
 #include "ircchannel.h"
@@ -29,8 +30,10 @@
 struct IrcServer {
     const char *id;
     const char *remotehost;
-    int port;
-    int tls;
+#ifdef WITH_TLS
+    const char *tls_certfile;
+    const char *tls_keyfile;
+#endif
     char *name;
     char *nick;
     const char *user;
@@ -44,6 +47,10 @@ struct IrcServer {
     Event *joined;
     Event *parted;
     char *sendcmd;
+    int port;
+#ifdef WITH_TLS
+    int tls;
+#endif
     int sending;
     int connst;
     int loginticks;
@@ -71,14 +78,18 @@ static void sendRawCmd(IrcServer *self, IrcCommand cmd, const char *args);
 static void handleMessage(IrcServer *self, const IrcMessage *msg);
 
 SOEXPORT IrcServer *IrcServer_create(const char *id,
-	const char *remotehost, int port, int tls,
+	const char *remotehost, int port,
 	const char *nick, const char *user, const char *realname)
 {
     IrcServer *self = IB_xmalloc(sizeof *self);
     self->id = id;
     self->remotehost = remotehost;
     self->port = port;
-    self->tls = tls;
+#ifdef WITH_TLS
+    self->tls_certfile = 0;
+    self->tls_keyfile = 0;
+    self->tls = 0;
+#endif
     self->name = 0;
     self->nick = IB_copystr(nick);
     self->user = user;
@@ -97,6 +108,16 @@ SOEXPORT IrcServer *IrcServer_create(const char *id,
     self->recvbufsz = 0;
     return self;
 }
+
+#ifdef WITH_TLS
+SOEXPORT void IrcServer_enableTls(IrcServer *self,
+	const char *certfile, const char *keyfile)
+{
+    self->tls_certfile = certfile;
+    self->tls_keyfile = keyfile;
+    self->tls = 1;
+}
+#endif
 
 static void connConnected(void *receiver, void *sender, void *args)
 {
@@ -444,8 +465,21 @@ SOLOCAL int IrcServer_connect(IrcServer *self)
 {
     if (self->conn) return 0;
     IBLog_msg(L_DEBUG, "IrcServer: initiating TCP connection");
-    self->conn = Connection_createTcpClient(self->remotehost, self->port,
-	    1, self->tls);
+    ClientOpts opts = {
+	.remotehost = self->remotehost,
+#ifdef WITH_TLS
+	.tls_certfile = self->tls_certfile,
+	.tls_keyfile = self->tls_keyfile,
+	.tls = self->tls,
+#else
+	.tls_certfile = 0,
+	.tls_keyfile = 0,
+	.tls = 0,
+#endif
+	.port = self->port,
+	.numerichosts = 1
+    };
+    self->conn = Connection_createTcpClient(&opts);
     if (!self->conn) return -1;
     Event_register(Connection_connected(self->conn), self, connConnected, 0);
     Event_register(Connection_closed(self->conn), self, connClosed, 0);

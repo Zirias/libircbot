@@ -20,16 +20,26 @@ C_CLASS_DECL(IrcServer);
  * @param id an identifier for the server, e.g. the name of the IRC network
  * @param remotehost host name or IP address to connect to
  * @param port port number to connect to (typically 6667)
- * @param tls use encrypted (TLS) connection
  * @param nick nickname to use on that server
  * @param user username to use, NULL to derive from local account
  * @param realname real name to use, NULL to derive from local account
  */
 DECLEXPORT IrcServer *IrcServer_create(const char *id,
-	const char *remotehost, int port, int tls,
+	const char *remotehost, int port,
 	const char *nick, const char *user, const char *realname)
     ATTR_RETNONNULL ATTR_NONNULL((1))
-    ATTR_NONNULL((2)) ATTR_NONNULL((5));
+    ATTR_NONNULL((2)) ATTR_NONNULL((4));
+
+/** Enable TLS with optional client certificate.
+ * This function must be called before the IrcServer object is passed to the
+ * IrcBot. It's only available when libircbot was built with TLS support.
+ * @memberof IrcServer
+ * @param self the IrcServer
+ * @param certfile client certificate file, NULL for none
+ * @param keyfile client certificate key file, NULL for none
+ */
+DECLEXPORT void IrcServer_enableTls(IrcServer *self,
+	const char *certfile, const char *keyfile) CMETHOD;
 
 /** The identifier of the server.
  * @memberof IrcServer

@@ -3,9 +3,10 @@
 
 #include <ircbot/decl.h>
 
+C_CLASS_DECL(ClientOpts);
 C_CLASS_DECL(Connection);
 
-Connection *Connection_createTcpClient(const char *remotehost, int port,
-	int numerichosts, int tls) ATTR_NONNULL((1));
+Connection *Connection_createTcpClient(const ClientOpts *opts)
+    ATTR_NONNULL((1));
 
 #endif

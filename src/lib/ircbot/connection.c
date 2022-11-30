@@ -445,13 +445,8 @@ static void deleteConnection(void *receiver, void *sender, void *args)
     Connection_destroy(self);
 }
 
-SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode,
-	int tls)
+SOLOCAL Connection *Connection_create(int fd, const ConnOpts *opts)
 {
-#ifndef WITH_TLS
-    (void) tls;
-#endif
-
     Connection *self = IB_xmalloc(sizeof *self);
     self->connected = Event_create(self);
     self->closed = Event_create(self);
@@ -465,12 +460,49 @@ SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode,
     self->data = 0;
     self->deleter = 0;
 #ifdef WITH_TLS
-    if (tls)
+    if (opts->tls_client)
     {
 	if (!tls_ctx) tls_ctx = SSL_CTX_new(TLS_client_method());
 	++tls_nconn;
 	self->tls = SSL_new(tls_ctx);
 	SSL_set_fd(self->tls, fd);
+	if (opts->tls_client_certfile)
+	{
+	    if (opts->tls_client_keyfile)
+	    {
+		if (SSL_use_certificate_file(self->tls,
+			    opts->tls_client_certfile, SSL_FILETYPE_PEM) > 0)
+		{
+		    if (SSL_use_PrivateKey_file(self->tls,
+				opts->tls_client_keyfile,
+				SSL_FILETYPE_PEM) <= 0)
+		    {
+			IBLog_fmt(L_ERROR, "connection: error loading private "
+				"key %s.", opts->tls_client_keyfile);
+		    }
+		    else
+		    {
+			IBLog_fmt(L_INFO, "connection: using client "
+				"certificate %s.", opts->tls_client_certfile);
+		    }
+		}
+		else
+		{
+		    IBLog_fmt(L_ERROR, "connection: error loading "
+			    "certificate %s.", opts->tls_client_certfile);
+		}
+	    }
+	    else
+	    {
+		IBLog_msg(L_ERROR, "connection: certificate without private "
+			"key, ignoring.");
+	    }
+	}
+	else if (opts->tls_client_keyfile)
+	{
+	    IBLog_msg(L_ERROR, "connection: private key without certificate, "
+		    "ignoring.");
+	}
     }
     else
     {
@@ -487,13 +519,13 @@ SOLOCAL Connection *Connection_create(int fd, ConnectionCreateMode mode,
     self->baserecidx = 0;
     Event_register(Service_readyRead(), self, readConnection, fd);
     Event_register(Service_readyWrite(), self, writeConnection, fd);
-    if (mode == CCM_CONNECTING)
+    if (opts->createmode == CCM_CONNECTING)
     {
 	self->connecting = CONNTICKS;
 	Event_register(Service_tick(), self, checkPendingConnection, 0);
 	Service_registerWrite(fd);
     }
-    else if (mode == CCM_NORMAL)
+    else if (opts->createmode == CCM_NORMAL)
     {
 	Service_registerRead(fd);
     }

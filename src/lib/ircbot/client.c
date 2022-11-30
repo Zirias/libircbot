@@ -3,6 +3,7 @@
 #include <ircbot/log.h>
 
 #include "client.h"
+#include "clientopts.h"
 #include "connection.h"
 
 #include <errno.h>
@@ -14,11 +15,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-SOLOCAL Connection *Connection_createTcpClient(const char *remotehost,
-	int port, int numerichosts, int tls)
+SOLOCAL Connection *Connection_createTcpClient(const ClientOpts *opts)
 {
 #ifndef WITH_TLS
-    if (tls)
+    if (opts->tls)
     {
 	IBLog_msg(L_FATAL, "client: TLS connections not supported");
 	return 0;
@@ -30,9 +30,9 @@ SOLOCAL Connection *Connection_createTcpClient(const char *remotehost,
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_ADDRCONFIG|AI_NUMERICSERV;
     char portstr[6];
-    snprintf(portstr, 6, "%d", port);
+    snprintf(portstr, 6, "%d", opts->port);
     struct addrinfo *res, *res0;
-    if (getaddrinfo(remotehost, portstr, &hints, &res0) < 0)
+    if (getaddrinfo(opts->remotehost, portstr, &hints, &res0) < 0)
     {
 	IBLog_msg(L_ERROR, "client: cannot get address info");
 	return 0;
@@ -56,12 +56,18 @@ SOLOCAL Connection *Connection_createTcpClient(const char *remotehost,
     if (fd < 0)
     {
 	freeaddrinfo(res0);
-	IBLog_fmt(L_ERROR, "client: cannot connect to `%s'", remotehost);
+	IBLog_fmt(L_ERROR, "client: cannot connect to `%s'", opts->remotehost);
 	return 0;
     }
-    Connection *conn = Connection_create(fd, CCM_CONNECTING, tls);
+    ConnOpts copts = {
+	.tls_client_certfile = opts->tls_certfile,
+	.tls_client_keyfile = opts->tls_keyfile,
+	.createmode = CCM_CONNECTING,
+	.tls_client = opts->tls
+    };
+    Connection *conn = Connection_create(fd, &copts);
     Connection_setRemoteAddr(conn, res->ai_addr, res->ai_addrlen,
-	    numerichosts);
+	    opts->numerichosts);
     freeaddrinfo(res0);
     return conn;
 }

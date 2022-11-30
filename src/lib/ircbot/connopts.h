@@ -8,4 +8,12 @@ typedef enum ConnectionCreateMode
     CCM_CONNECTING
 } ConnectionCreateMode;
 
+typedef struct ConnOpts
+{
+    const char *tls_client_certfile;
+    const char *tls_client_keyfile;
+    ConnectionCreateMode createmode;
+    int tls_client;
+} ConnOpts;
+
 #endif

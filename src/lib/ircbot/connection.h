@@ -18,8 +18,8 @@ typedef struct DataReceivedEventArgs
     uint16_t size;
 } DataReceivedEventArgs;
 
-Connection *Connection_create(int fd, ConnectionCreateMode mode, int tls)
-    ATTR_RETNONNULL;
+Connection *Connection_create(int fd, const ConnOpts *opts)
+    ATTR_RETNONNULL ATTR_NONNULL((2));
 Event *Connection_connected(Connection *self)
     CMETHOD ATTR_RETNONNULL ATTR_PURE;
 Event *Connection_closed(Connection *self)
