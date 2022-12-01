@@ -33,11 +33,23 @@ ircbot_LDFLAGS:=		-pthread
 ircbot_HEADERDIR:=		include$(PSEP)ircbot
 ircbot_V_MAJ:=			1
 ircbot_V_MIN:=			1
-ircbot_V_REV:=			0
+ircbot_V_REV:=			1
 
 ifeq ($(WITH_TLS),1)
-ircbot_PKGDEPS:=		libssl
-ircbot_DEFINES:=		-DWITH_TLS
+  ifneq ($(OPENSSLINC)$(OPENSSLLIB),)
+    ifeq ($(OPENSSLINC),)
+$(error OPENSSLLIB specified without OPENSSLINC)
+    endif
+    ifeq ($(OPENSSLLIB),)
+$(error OPENSSLINC specified without OPENSSLLIB)
+    endif
+ircbot_INCLUDES+=		-I$(OPENSSLINC)
+ircbot_LDFLAGS+=		-L$(OPENSSLLIB)
+ircbot_LIBS+=			ssl
+  else
+ircbot_PKGDEPS+=		libssl
+  endif
+ircbot_DEFINES+=		-DWITH_TLS
 endif
 
 $(call librules, ircbot)
