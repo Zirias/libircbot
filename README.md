@@ -12,7 +12,8 @@ TLS is available by adding `WITH_TLS=1` for building. This requires OpenSSL
     make WITH_TLS=1
     make WITH_TLS=1 install
 
-Any value other than `0`, `no`, `off` or `false` will enable TLS support.
+Options are enabled with `1`, `yes`, `on` or `true` and disabled with `0`,
+`no`, `off` or `false`.
 
 ## Quick start
 
