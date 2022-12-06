@@ -26,6 +26,7 @@
 #define LOGINTICKS 20
 #define IDLETICKS 180
 #define PINGTICKS 3
+#define FULLSENDCREDIT 9
 
 struct IrcServer {
     const char *id;
@@ -56,6 +57,7 @@ struct IrcServer {
     int loginticks;
     int reconnticks;
     int idleticks;
+    int sendcreditticks;
     uint16_t recvbufsz;
     uint8_t recvbuf[8192];
 };
@@ -134,6 +136,7 @@ static void connConnected(void *receiver, void *sender, void *args)
 	Event_register(Connection_dataSent(self->conn), self,
 		connDataSent, 0);
 	self->sendQueue = IBQueue_create();
+	self->sendcreditticks = FULLSENDCREDIT;
 	self->connst = -1;
 	self->loginticks = LOGINTICKS;
 	Event_register(Service_tick(), self, connWaitLogin, 0);
@@ -255,10 +258,12 @@ static void connDataSent(void *receiver, void *sender, void *args)
 	IBLog_msg(L_DEBUG, "IrcServer: sending confirmed");
 	free(self->sendcmd);
 	self->sendcmd = 0;
-	char *nextcmd = IBQueue_dequeue(self->sendQueue);
-	if (nextcmd)
+	char *nextcmd;
+	if (self->sendcreditticks > 1 &&
+		(nextcmd = IBQueue_dequeue(self->sendQueue)))
 	{
 	    self->sendcmd = nextcmd;
+	    self->sendcreditticks -= 2;
 	    Connection_write(self->conn, (const uint8_t *)self->sendcmd,
 		    (uint16_t)strlen(self->sendcmd), self);
 	}
@@ -307,6 +312,18 @@ static void checkIdle(void *receiver, void *sender, void *args)
     IrcServer *self = receiver;
     (void)sender;
     (void)args;
+
+    char *nextcmd;
+    if (self->sendcreditticks < FULLSENDCREDIT
+	    && ++self->sendcreditticks == 2 && !self->sending
+	    && (nextcmd = IBQueue_dequeue(self->sendQueue)))
+    {
+	self->sendcmd = nextcmd;
+	self->sending = 1;
+	self->sendcreditticks = 0;
+	Connection_write(self->conn, (const uint8_t *)self->sendcmd,
+		(uint16_t)strlen(self->sendcmd), self);
+    }
 
     if (--self->idleticks == 0)
     {
@@ -360,7 +377,7 @@ static void sendRaw(IrcServer *self, const char *command)
 {
     char *cmd = IB_copystr(command);
     IBLog_fmt(L_DEBUG, "IrcServer: sending %s", cmd);
-    if (self->sending)
+    if (self->sendcreditticks < 2 || self->sending)
     {
 	IBQueue_enqueue(self->sendQueue, cmd, free);
     }
@@ -368,6 +385,7 @@ static void sendRaw(IrcServer *self, const char *command)
     {
 	self->sendcmd = cmd;
 	self->sending = 1;
+	self->sendcreditticks -= 2;
 	Connection_write(self->conn, (const uint8_t *)self->sendcmd,
 		(uint16_t)strlen(self->sendcmd), self);
     }
@@ -400,6 +418,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 		IBLog_fmt(L_INFO, "IrcServer: [%s] connected and logged in",
 			self->name);
 		self->connst = 1;
+		self->sendcreditticks = FULLSENDCREDIT;
 		Event_unregister(Service_tick(), self, connWaitLogin, 0);
 		Event_register(Service_tick(), self, checkIdle, 0);
 		Event_raise(self->connected, 0, 0);
