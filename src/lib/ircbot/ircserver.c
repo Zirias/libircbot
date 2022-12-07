@@ -70,7 +70,7 @@ static void connDataReceived(void *receiver, void *sender, void *args);
 static void connDataSent(void *receiver, void *sender, void *args);
 static void connWaitReconn(void *receiver, void *sender, void *args);
 static void connWaitLogin(void *receiver, void *sender, void *args);
-static void checkIdle(void *receiver, void *sender, void *args);
+static void activeTick(void *receiver, void *sender, void *args);
 static void chanJoined(void *receiver, void *sender, void *args);
 static void chanParted(void *receiver, void *sender, void *args);
 static void chanFailed(void *receiver, void *sender, void *args);
@@ -258,16 +258,8 @@ static void connDataSent(void *receiver, void *sender, void *args)
 	IBLog_msg(L_DEBUG, "IrcServer: sending confirmed");
 	free(self->sendcmd);
 	self->sendcmd = 0;
-	char *nextcmd;
-	if (self->sendcreditticks > 1 &&
-		(nextcmd = IBQueue_dequeue(self->sendQueue)))
-	{
-	    self->sendcmd = nextcmd;
-	    self->sendcreditticks -= 2;
-	    Connection_write(self->conn, (const uint8_t *)self->sendcmd,
-		    (uint16_t)strlen(self->sendcmd), self);
-	}
-	else self->sending = 0;
+	self->sending = 0;
+	sendRaw(self, 0);
     }
 }
 
@@ -307,23 +299,14 @@ static void connWaitLogin(void *receiver, void *sender, void *args)
     }
 }
 
-static void checkIdle(void *receiver, void *sender, void *args)
+static void activeTick(void *receiver, void *sender, void *args)
 {
     IrcServer *self = receiver;
     (void)sender;
     (void)args;
 
-    char *nextcmd;
-    if (self->sendcreditticks < FULLSENDCREDIT
-	    && ++self->sendcreditticks == 2 && !self->sending
-	    && (nextcmd = IBQueue_dequeue(self->sendQueue)))
-    {
-	self->sendcmd = nextcmd;
-	self->sending = 1;
-	self->sendcreditticks = 0;
-	Connection_write(self->conn, (const uint8_t *)self->sendcmd,
-		(uint16_t)strlen(self->sendcmd), self);
-    }
+    if (self->sendcreditticks < FULLSENDCREDIT) ++self->sendcreditticks;
+    sendRaw(self, 0);
 
     if (--self->idleticks == 0)
     {
@@ -333,7 +316,7 @@ static void checkIdle(void *receiver, void *sender, void *args)
     }
     else if (self->idleticks <= -PINGTICKS)
     {
-	Event_unregister(Service_tick(), self, checkIdle, 0);
+	Event_unregister(Service_tick(), self, activeTick, 0);
 	IBLog_fmt(L_WARNING,
 		"IrcServer: [%s] timeout waiting for pong, disconnecting ...",
 		servername(self));
@@ -375,15 +358,14 @@ static void chanFailed(void *receiver, void *sender, void *args)
 
 static void sendRaw(IrcServer *self, const char *command)
 {
-    char *cmd = IB_copystr(command);
-    IBLog_fmt(L_DEBUG, "IrcServer: sending %s", cmd);
-    if (self->sendcreditticks < 2 || self->sending)
+    if (command)
     {
-	IBQueue_enqueue(self->sendQueue, cmd, free);
+	IBQueue_enqueue(self->sendQueue, IB_copystr(command), free);
     }
-    else
+    if (self->sendcreditticks < 2 || self->sending) return;
+    if ((self->sendcmd = IBQueue_dequeue(self->sendQueue)))
     {
-	self->sendcmd = cmd;
+	IBLog_fmt(L_DEBUG, "IrcServer: sending %s", self->sendcmd);
 	self->sending = 1;
 	self->sendcreditticks -= 2;
 	Connection_write(self->conn, (const uint8_t *)self->sendcmd,
@@ -420,7 +402,7 @@ static void handleMessage(IrcServer *self, const IrcMessage *msg)
 		self->connst = 1;
 		self->sendcreditticks = FULLSENDCREDIT;
 		Event_unregister(Service_tick(), self, connWaitLogin, 0);
-		Event_register(Service_tick(), self, checkIdle, 0);
+		Event_register(Service_tick(), self, activeTick, 0);
 		Event_raise(self->connected, 0, 0);
 	    }
 	    break;
