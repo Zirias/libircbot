@@ -15,6 +15,43 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define BLACKLISTSIZE 32
+#define BLACKLISTHITS 3
+
+typedef struct BlacklistEntry
+{
+    socklen_t len;
+    struct sockaddr_storage val;
+    int hits;
+} BlacklistEntry;
+
+static BlacklistEntry blacklist[BLACKLISTSIZE];
+
+SOLOCAL void Connection_blacklistAddress(socklen_t len, struct sockaddr *addr)
+{
+    for (size_t i = 0; i < BLACKLISTSIZE; ++i)
+    {
+	if (blacklist[i].len) continue;
+	memcpy(&blacklist[i].val, addr, len);
+	blacklist[i].len = len;
+	blacklist[i].hits = BLACKLISTHITS;
+	return;
+    }
+}
+
+static int blacklistcheck(socklen_t len, struct sockaddr *addr)
+{
+    for (size_t i = 0; i < BLACKLISTSIZE; ++i)
+    {
+	if (blacklist[i].len == len && !memcmp(&blacklist[i].val, addr, len))
+	{
+	    if (!--blacklist[i].hits) blacklist[i].len = 0;
+	    return 0;
+	}
+    }
+    return 1;
+}
+
 SOLOCAL Connection *Connection_createTcpClient(const ClientOpts *opts)
 {
 #ifndef WITH_TLS
@@ -41,6 +78,7 @@ SOLOCAL Connection *Connection_createTcpClient(const ClientOpts *opts)
     for (res = res0; res; res = res->ai_next)
     {
 	if (res->ai_family != AF_INET && res->ai_family != AF_INET6) continue;
+	if (!blacklistcheck(res->ai_addrlen, res->ai_addr)) continue;
 	fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (fd < 0) continue;
 	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);

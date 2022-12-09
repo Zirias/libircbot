@@ -2,6 +2,7 @@
 
 #include <ircbot/log.h>
 
+#include "client.h"
 #include "connection.h"
 #include "event.h"
 #include "service.h"
@@ -84,6 +85,9 @@ typedef struct Connection
     uint8_t rdbuf[CONNBUFSZ];
 } Connection;
 
+void Connection_blacklistAddress(socklen_t len, struct sockaddr *addr)
+    ATTR_NONNULL((2));
+
 static void checkPendingConnection(void *receiver, void *sender, void *args);
 static void wantreadwrite(Connection *self) CMETHOD;
 #ifdef WITH_TLS
@@ -111,7 +115,7 @@ static void checkPendingConnection(void *receiver, void *sender, void *args)
 	IBLog_fmt(L_INFO, "connection: timeout connecting to %s",
 		Connection_remoteAddr(self));
 	Service_unregisterWrite(self->fd);
-	Connection_close(self);
+	Connection_close(self, 1);
     }
 }
 
@@ -159,7 +163,7 @@ static void checkPendingTls(void *receiver, void *sender, void *args)
     {
 	IBLog_fmt(L_INFO, "connection: TLS handshake timeout with %s",
 		Connection_remoteAddr(self));
-	Connection_close(self);
+	Connection_close(self, 1);
     }
 }
 
@@ -187,7 +191,7 @@ static void dohandshake(Connection *self)
 	    IBLog_fmt(L_ERROR, "connection: TLS handshake failed with %s",
 		    Connection_remoteAddr(self));
 	    Event_unregister(Service_tick(), self, checkPendingTls, 0);
-	    Connection_close(self);
+	    Connection_close(self, 1);
 	    return;
 	}
     }
@@ -233,7 +237,7 @@ static void dowrite(Connection *self)
 	    {
 		IBLog_fmt(L_WARNING, "connection: error writing to %s",
 			Connection_remoteAddr(self));
-		Connection_close(self);
+		Connection_close(self, 0);
 		return;
 	    }
 	}
@@ -271,7 +275,7 @@ static void dowrite(Connection *self)
 	{
 	    IBLog_fmt(L_WARNING, "connection: error writing to %s",
 		    Connection_remoteAddr(self));
-	    Connection_close(self);
+	    Connection_close(self, 0);
 	}
 #ifdef WITH_TLS
     }
@@ -294,7 +298,7 @@ static void writeConnection(void *receiver, void *sender, void *args)
 	{
 	    IBLog_fmt(L_INFO, "connection: failed to connect to %s",
 		    Connection_remoteAddr(self));
-	    Connection_close(self);
+	    Connection_close(self, 1);
 	    return;
 	}
 	self->connecting = 0;
@@ -365,7 +369,7 @@ static void doread(Connection *self)
 	    {
 		IBLog_fmt(L_WARNING, "connection: error reading from %s",
 			Connection_remoteAddr(self));
-		Connection_close(self);
+		Connection_close(self, 0);
 		return;
 	    }
 	}
@@ -399,7 +403,7 @@ static void doread(Connection *self)
 		IBLog_fmt(L_WARNING, "connection: error reading from %s",
 			Connection_remoteAddr(self));
 	    }
-	    Connection_close(self);
+	    Connection_close(self, 0);
 	}
 #ifdef WITH_TLS
     }
@@ -609,15 +613,18 @@ SOLOCAL void Connection_setRemoteAddr(Connection *self,
 		servbuf, sizeof servbuf, NI_NUMERICHOST|NI_NUMERICSERV) >= 0)
     {
 	self->addr = IB_copystr(hostbuf);
-	if (!numericOnly && !self->resolveJob && ThreadPool_active())
+	if (!self->resolveJob)
 	{
 	    memcpy(&self->resolveArgs.sa, addr, addrlen);
 	    self->resolveArgs.addrlen = addrlen;
-	    self->resolveJob = ThreadJob_create(resolveRemoteAddrProc,
-		    &self->resolveArgs, RESOLVTICKS);
-	    Event_register(ThreadJob_finished(self->resolveJob), self,
-		    resolveRemoteAddrFinished, 0);
-	    ThreadPool_enqueue(self->resolveJob);
+	    if (!numericOnly && ThreadPool_active())
+	    {
+		self->resolveJob = ThreadJob_create(resolveRemoteAddrProc,
+			&self->resolveArgs, RESOLVTICKS);
+		Event_register(ThreadJob_finished(self->resolveJob), self,
+			resolveRemoteAddrFinished, 0);
+		ThreadPool_enqueue(self->resolveJob);
+	    }
 	}
     }
 }
@@ -660,7 +667,7 @@ SOLOCAL int Connection_confirmDataReceived(Connection *self)
     return 0;
 }
 
-SOLOCAL void Connection_close(Connection *self)
+SOLOCAL void Connection_close(Connection *self, int blacklist)
 {
 #ifdef WITH_TLS
     if (self->tls && !self->connecting && !self->tls_connect_st)
@@ -668,6 +675,11 @@ SOLOCAL void Connection_close(Connection *self)
 	SSL_shutdown(self->tls);
     }
 #endif
+    if (blacklist && self->resolveArgs.addrlen)
+    {
+	Connection_blacklistAddress(self->resolveArgs.addrlen,
+		&self->resolveArgs.sa);
+    }
     Event_raise(self->closed, 0, self->connecting ? 0 : self);
     deleteLater(self);
 }

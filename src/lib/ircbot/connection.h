@@ -40,7 +40,7 @@ int Connection_write(Connection *self,
 	const uint8_t *buf, uint16_t sz, void *id) CMETHOD ATTR_NONNULL((2));
 void Connection_activate(Connection *self) CMETHOD;
 int Connection_confirmDataReceived(Connection *self) CMETHOD;
-void Connection_close(Connection *self) CMETHOD;
+void Connection_close(Connection *self, int blacklist) CMETHOD;
 void Connection_setData(Connection *self,
 	void *data, void (*deleter)(void *)) CMETHOD;
 void *Connection_data(const Connection *self) CMETHOD ATTR_PURE;

@@ -295,7 +295,7 @@ static void connWaitLogin(void *receiver, void *sender, void *args)
 	IBLog_fmt(L_WARNING,
 		"IrcServer: [%s] timeout waiting for login, disconnecting ...",
 		servername(self));
-	Connection_close(self->conn);
+	Connection_close(self->conn, 1);
     }
 }
 
@@ -320,7 +320,7 @@ static void activeTick(void *receiver, void *sender, void *args)
 	IBLog_fmt(L_WARNING,
 		"IrcServer: [%s] timeout waiting for pong, disconnecting ...",
 		servername(self));
-	Connection_close(self->conn);
+	Connection_close(self->conn, 0);
     }
 }
 
@@ -492,7 +492,7 @@ SOLOCAL void IrcServer_disconnect(IrcServer *self)
     Event_unregister(Service_tick(), self, connWaitLogin, 0);
     Event_unregister(Service_tick(), self, connWaitReconn, 0);
     if (self->connst > 0) sendRawCmd(self, MSG_QUIT, ":bye.");
-    else if (self->conn) Connection_close(self->conn);
+    else if (self->conn) Connection_close(self->conn, 0);
 }
 
 SOEXPORT const char *IrcServer_id(const IrcServer *self)
@@ -628,7 +628,7 @@ SOEXPORT void IrcServer_destroy(IrcServer *self)
 		connClosed, 0);
 	IrcServer_disconnect(self);
 	IBQueue_destroy(self->sendQueue);
-	Connection_close(self->conn);
+	Connection_close(self->conn, 0);
     }
     Event_destroy(self->connected);
     Event_destroy(self->disconnected);
