@@ -41,6 +41,22 @@ DECLEXPORT IrcServer *IrcServer_create(const char *id,
 DECLEXPORT void IrcServer_enableTls(IrcServer *self,
 	const char *certfile, const char *keyfile) CMETHOD;
 
+/** Use only IPv4 for connecting.
+ * This function must be called before the IrcServer object is passed to the
+ * IrcBot.
+ * @memberof IrcServer
+ * @param self the IrcServer
+ */
+DECLEXPORT void IrcServer_useIpv4(IrcServer *self) CMETHOD;
+
+/** Use only IPv6 for connecting.
+ * This function must be called before the IrcServer object is passed to the
+ * IrcBot.
+ * @memberof IrcServer
+ * @param self the IrcServer
+ */
+DECLEXPORT void IrcServer_useIpv6(IrcServer *self) CMETHOD;
+
 /** The identifier of the server.
  * @memberof IrcServer
  * @param self the IrcServer

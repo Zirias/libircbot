@@ -48,6 +48,7 @@ struct IrcServer {
     Event *joined;
     Event *parted;
     char *sendcmd;
+    ClientProto proto;
     int port;
 #ifdef WITH_TLS
     int tls;
@@ -86,6 +87,7 @@ SOEXPORT IrcServer *IrcServer_create(const char *id,
     IrcServer *self = IB_xmalloc(sizeof *self);
     self->id = id;
     self->remotehost = remotehost;
+    self->proto = CP_ANY;
     self->port = port;
 #ifdef WITH_TLS
     self->tls_certfile = 0;
@@ -120,6 +122,16 @@ SOEXPORT void IrcServer_enableTls(IrcServer *self,
     self->tls = 1;
 }
 #endif
+
+SOEXPORT void IrcServer_useIpv4(IrcServer *self)
+{
+    self->proto = CP_IPv4;
+}
+
+SOEXPORT void IrcServer_useIpv6(IrcServer *self)
+{
+    self->proto = CP_IPv6;
+}
 
 static void connConnected(void *receiver, void *sender, void *args)
 {
@@ -477,6 +489,7 @@ SOLOCAL int IrcServer_connect(IrcServer *self)
 	.tls_keyfile = 0,
 	.tls = 0,
 #endif
+	.proto = self->proto,
 	.port = self->port,
 	.numerichosts = 1
     };

@@ -78,6 +78,8 @@ SOLOCAL Connection *Connection_createTcpClient(const ClientOpts *opts)
     for (res = res0; res; res = res->ai_next)
     {
 	if (res->ai_family != AF_INET && res->ai_family != AF_INET6) continue;
+	if (opts->proto == CP_IPv4 && res->ai_family != AF_INET) continue;
+	if (opts->proto == CP_IPv6 && res->ai_family != AF_INET6) continue;
 	if (!blacklistcheck(res->ai_addrlen, res->ai_addr)) continue;
 	fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (fd < 0) continue;
